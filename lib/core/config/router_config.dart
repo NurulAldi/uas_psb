@@ -105,8 +105,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'register',
         builder: (context, state) => const RegisterScreen(),
       ),
+
+      // Profile Routes (requires authentication)
       GoRoute(
-        path: '/auth/edit-profile',
+        path: '/profile/edit',
         name: 'edit-profile',
         builder: (context, state) {
           final profile = state.extra as dynamic;

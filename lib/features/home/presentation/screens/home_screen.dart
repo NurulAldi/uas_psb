@@ -52,7 +52,7 @@ class HomeScreen extends ConsumerWidget {
                 context.push('/products/my-listings');
               } else if (value == 'edit-profile') {
                 if (userProfile != null) {
-                  await context.push('/auth/edit-profile', extra: userProfile);
+                  await context.push('/profile/edit', extra: userProfile);
                   // Profile will auto-refresh via provider invalidation
                 }
               } else if (value == 'admin-dashboard') {

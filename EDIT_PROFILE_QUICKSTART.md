@@ -48,7 +48,7 @@ lib/features/auth/
         └── edit_profile_page.dart          # NEW
 
 lib/core/config/
-└── router_config.dart                      # UPDATED (added /auth/edit-profile route)
+└── router_config.dart                      # UPDATED (added /profile/edit route)
 
 lib/features/home/
 └── presentation/
