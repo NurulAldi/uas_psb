@@ -1,0 +1,451 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/features/auth/providers/auth_controller.dart';
+
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
+
+  @override
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+}
+
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _fullNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Clear error when user starts typing
+    _fullNameController.addListener(_onFieldChanged);
+    _emailController.addListener(_onFieldChanged);
+    _phoneController.addListener(_onFieldChanged);
+    _passwordController.addListener(_onFieldChanged);
+    _confirmPasswordController.addListener(_onFieldChanged);
+  }
+
+  void _onFieldChanged() {
+    // Clear error when user types
+    final authState = ref.read(authControllerProvider);
+    if (authState.hasError) {
+      ref.read(authControllerProvider.notifier).clearError();
+    }
+  }
+
+  @override
+  void dispose() {
+    _fullNameController.removeListener(_onFieldChanged);
+    _emailController.removeListener(_onFieldChanged);
+    _phoneController.removeListener(_onFieldChanged);
+    _passwordController.removeListener(_onFieldChanged);
+    _confirmPasswordController.removeListener(_onFieldChanged);
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  void _handleRegister() async {
+    print('\n🔵 REGISTER: Form validation started');
+    if (_formKey.currentState?.validate() ?? false) {
+      print('✅ REGISTER: Form validation passed');
+      print('📧 REGISTER: Email = ${_emailController.text}');
+      print('👤 REGISTER: Name = ${_fullNameController.text}');
+
+      // Clear any previous errors
+      ref.read(authControllerProvider.notifier).clearError();
+
+      print('🔄 REGISTER: Calling signUpWithEmail...');
+
+      // CRITICAL: Only call the register method, NO navigation here
+      final result =
+          await ref.read(authControllerProvider.notifier).signUpWithEmail(
+                email: _emailController.text,
+                password: _passwordController.text,
+                fullName: _fullNameController.text,
+                phoneNumber: _phoneController.text.isNotEmpty
+                    ? _phoneController.text
+                    : null,
+              );
+
+      if (!mounted) return;
+
+      // Handle success with auto-confirm (immediate login)
+      if (result == 'success') {
+        print('✅ REGISTER: Sign up successful with auto-confirm');
+        // Show success dialog
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            icon: Icon(Icons.check_circle, color: AppColors.success, size: 64),
+            title: const Text('Registration Successful!'),
+            content: Text(
+              'Welcome ${_fullNameController.text}! Your account has been created successfully.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
+        // Router will automatically navigate to home (user is authenticated)
+        print('🔄 REGISTER: Router will navigate to home');
+        return;
+      }
+
+      // Handle confirmation required case
+      if (result == 'confirmation_required') {
+        print('⚠️ REGISTER: Email confirmation required');
+        // Show info dialog
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            icon: Icon(Icons.email_outlined, color: AppColors.info, size: 64),
+            title: const Text('Verify Your Email'),
+            content: Text(
+              'Account created! Please check your email (${_emailController.text}) to verify your account before logging in.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Clear error state before navigating
+                  ref.read(authControllerProvider.notifier).clearError();
+                  context.go('/auth/login');
+                },
+                child: const Text('Go to Login'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      // If result is null, error is already set in state and will be displayed inline
+      print('📊 REGISTER: signUpWithEmail completed, state updated');
+    } else {
+      print('❌ REGISTER: Form validation failed');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
+
+    // LISTENER: Only for logging - router handles navigation automatically
+    ref.listen<AsyncValue<dynamic>>(
+      authControllerProvider,
+      (previous, next) {
+        print('\n🎧 REGISTER LISTENER: State changed');
+
+        // Log successful authentication (router handles navigation)
+        // CRITICAL FIX: Use maybeWhen to safely check authentication
+        final wasAuthenticated = previous?.maybeWhen(
+              data: (user) => user != null,
+              orElse: () => false,
+            ) ??
+            false;
+        final isNowAuthenticated = next.maybeWhen(
+          data: (user) => user != null,
+          orElse: () => false,
+        );
+
+        if (isNowAuthenticated && !wasAuthenticated) {
+          print(
+              '✅ REGISTER LISTENER: User authenticated - router will navigate');
+        }
+
+        if (next.hasError) {
+          print('❌ REGISTER LISTENER: Error occurred - ${next.error}');
+        }
+      },
+    );
+
+    final isLoading = authState.isLoading;
+    final errorMessage = authState.hasError ? authState.error.toString() : null;
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: isLoading ? null : () => context.go('/auth/login'),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16),
+                Text(
+                  'Create account',
+                  style: Theme.of(context).textTheme.displaySmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Join RentLens to start renting professional gear',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                ),
+                const SizedBox(height: 48),
+
+                // Full Name Field
+                TextFormField(
+                  controller: _fullNameController,
+                  keyboardType: TextInputType.name,
+                  enabled: !isLoading,
+                  decoration: const InputDecoration(
+                    labelText: 'Full Name',
+                    hintText: 'Enter your full name',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your full name';
+                    }
+                    if (value.length < 3) {
+                      return 'Name must be at least 3 characters';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Email Field
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  enabled: !isLoading,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'Enter your email',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your email';
+                    }
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                        .hasMatch(value)) {
+                      return 'Please enter a valid email';
+                    }
+                    // Suggest using real email providers for testing
+                    if (value.contains('@email.com') ||
+                        value.contains('@test.com')) {
+                      return 'Please use a real email domain (e.g., @gmail.com, @yahoo.com)';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Phone Number Field (Optional)
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  enabled: !isLoading,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone Number (Optional)',
+                    hintText: 'Enter your phone number',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                  ),
+                  validator: (value) {
+                    // Only validate if user entered something
+                    if (value != null && value.trim().isNotEmpty) {
+                      final trimmed = value.trim();
+                      // Basic validation: should contain only digits, +, -, (, ), and spaces
+                      if (!RegExp(r'^[\d\s+\-\(\)]+$').hasMatch(trimmed)) {
+                        return 'Please enter a valid phone number';
+                      }
+                      // Should have at least 8 digits
+                      final digitsOnly =
+                          trimmed.replaceAll(RegExp(r'[^\d]'), '');
+                      if (digitsOnly.length < 8) {
+                        return 'Phone number must have at least 8 digits';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Password Field
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  enabled: !isLoading,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Create a password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Confirm Password Field
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  enabled: !isLoading,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    hintText: 'Re-enter your password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // Error Message Banner (inline below fields)
+                if (errorMessage != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.error.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: AppColors.error,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            errorMessage,
+                            style: TextStyle(
+                              color: AppColors.error,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 24),
+
+                // Register Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : _handleRegister,
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Create account'),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Login Link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Already have an account? ',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    InkWell(
+                      onTap: isLoading ? null : () => context.go('/auth/login'),
+                      child: Text(
+                        'Log in',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: isLoading
+                                  ? AppColors.textSecondary
+                                  : AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
