@@ -4,7 +4,8 @@ import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/admin/data/admin_repository.dart';
 import 'package:rentlens/features/admin/providers/admin_provider.dart';
 
-final adminStatisticsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
+final adminStatisticsProvider =
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final adminRepo = ref.watch(adminRepositoryProvider);
   return await adminRepo.getStatistics();
 });
@@ -37,7 +38,7 @@ class StatisticsScreen extends ConsumerWidget {
               // Statistics Cards
               _buildStatCard(
                 'Total Users',
-                stats['total_users'].toString(),
+                stats['total_users']?.toString() ?? '0',
                 Icons.people,
                 AppColors.primary,
               ),
@@ -45,7 +46,7 @@ class StatisticsScreen extends ConsumerWidget {
 
               _buildStatCard(
                 'Banned Users',
-                stats['banned_users'].toString(),
+                stats['banned_users']?.toString() ?? '0',
                 Icons.block,
                 AppColors.error,
               ),
@@ -53,7 +54,7 @@ class StatisticsScreen extends ConsumerWidget {
 
               _buildStatCard(
                 'Pending Reports',
-                stats['pending_reports'].toString(),
+                stats['pending_reports']?.toString() ?? '0',
                 Icons.report_problem,
                 Colors.orange,
               ),
@@ -61,25 +62,9 @@ class StatisticsScreen extends ConsumerWidget {
 
               _buildStatCard(
                 'Total Reports',
-                stats['total_reports'].toString(),
+                stats['total_reports']?.toString() ?? '0',
                 Icons.report,
                 Colors.grey,
-              ),
-              const SizedBox(height: 12),
-
-              _buildStatCard(
-                'Total Products',
-                stats['total_products'].toString(),
-                Icons.camera_alt,
-                Colors.blue,
-              ),
-              const SizedBox(height: 12),
-
-              _buildStatCard(
-                'Total Bookings',
-                stats['total_bookings'].toString(),
-                Icons.book,
-                Colors.green,
               ),
             ],
           ),
@@ -104,7 +89,8 @@ class StatisticsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Card(
       elevation: 2,
       child: Padding(

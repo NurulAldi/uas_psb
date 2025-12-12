@@ -70,7 +70,7 @@ class AdminRepository {
     int? offset,
   }) async {
     try {
-      dynamic query = _supabase.from('users').select();
+      dynamic query = _supabase.from('profiles').select();
 
       if (isBanned != null) {
         query = query.eq('is_banned', isBanned);
@@ -101,7 +101,7 @@ class AdminRepository {
     required String reason,
   }) async {
     try {
-      await _supabase.from('users').update({
+      await _supabase.from('profiles').update({
         'is_banned': true,
         'banned_at': DateTime.now().toIso8601String(),
         'banned_by': adminId,
@@ -110,7 +110,7 @@ class AdminRepository {
 
       return true;
     } catch (e) {
-      print('Error banning user: $e');
+      print('❌ Error banning user: $e');
       return false;
     }
   }
@@ -118,7 +118,7 @@ class AdminRepository {
   /// Unban a user
   Future<bool> unbanUser(String userId) async {
     try {
-      await _supabase.from('users').update({
+      await _supabase.from('profiles').update({
         'is_banned': false,
         'banned_at': null,
         'banned_by': null,
@@ -127,7 +127,7 @@ class AdminRepository {
 
       return true;
     } catch (e) {
-      print('Error unbanning user: $e');
+      print('❌ Error unbanning user: $e');
       return false;
     }
   }
@@ -259,11 +259,13 @@ class AdminRepository {
   Future<Map<String, dynamic>> getStatistics() async {
     try {
       // Get counts sequentially (Supabase count syntax)
-      final totalUsers =
-          await _supabase.from('users').select('id').count(CountOption.exact);
+      final totalUsers = await _supabase
+          .from('profiles')
+          .select('id')
+          .count(CountOption.exact);
 
       final bannedUsers = await _supabase
-          .from('users')
+          .from('profiles')
           .select('id')
           .eq('is_banned', true)
           .count(CountOption.exact);
@@ -277,27 +279,21 @@ class AdminRepository {
       final totalReports =
           await _supabase.from('reports').select('id').count(CountOption.exact);
 
-      final totalProducts = await _supabase
-          .from('products')
-          .select('id')
-          .count(CountOption.exact);
-
-      final totalBookings = await _supabase
-          .from('bookings')
-          .select('id')
-          .count(CountOption.exact);
-
       return {
         'total_users': totalUsers.count,
         'banned_users': bannedUsers.count,
         'pending_reports': pendingReports.count,
         'total_reports': totalReports.count,
-        'total_products': totalProducts.count,
-        'total_bookings': totalBookings.count,
       };
     } catch (e) {
-      print('Error getting statistics: $e');
-      return {};
+      print('❌ Error getting statistics: $e');
+      // Return default values instead of empty map
+      return {
+        'total_users': 0,
+        'banned_users': 0,
+        'pending_reports': 0,
+        'total_reports': 0,
+      };
     }
   }
 

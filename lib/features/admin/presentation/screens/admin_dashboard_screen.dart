@@ -48,7 +48,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Logout'),
-        content: const Text('Apakah Anda yakin ingin keluar dari dashboard admin?'),
+        content:
+            const Text('Apakah Anda yakin ingin keluar dari dashboard admin?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),

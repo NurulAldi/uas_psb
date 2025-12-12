@@ -47,7 +47,7 @@ class GoRouterRefreshStream extends ChangeNotifier {
 final routerProvider = Provider<GoRouter>((ref) {
   // Watch auth state to trigger router refresh on auth changes
   ref.watch(authControllerProvider);
-  
+
   // Watch profile to trigger refresh when profile loads
   ref.watch(currentUserProfileProvider);
 
@@ -69,6 +69,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
       final isAdminRoute = state.matchedLocation.startsWith('/admin');
+      final isLoadingRoute = state.matchedLocation == '/loading';
       final isAuthLoading = authState.isLoading;
       final isProfileLoading = profileAsync.isLoading;
 
@@ -82,14 +83,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       print('   auth=$isAuthenticated, role=$userRole');
       print('   authLoading=$isAuthLoading, profileLoading=$isProfileLoading');
 
-      // Rule 1: If loading auth or profile, stay on current page
-      if (isAuthLoading || (isAuthenticated && isProfileLoading)) {
-        print('🔀 ROUTER: Loading - staying on current page');
+      // Rule 1: If auth is loading, stay on current page
+      if (isAuthLoading) {
+        print('🔀 ROUTER: Auth loading - staying on current page');
         return null;
       }
 
-      // Rule 2: If authenticated, check admin role and redirect accordingly
-      if (isAuthenticated) {
+      // Rule 2: If authenticated but profile still loading, go to loading screen
+      if (isAuthenticated && isProfileLoading && !isLoadingRoute) {
+        print('🔀 ROUTER: Profile loading - redirect to loading screen');
+        return '/loading';
+      }
+
+      // Rule 3: If on loading screen but profile already loaded, redirect based on role
+      if (isLoadingRoute && !isProfileLoading) {
+        final isAdmin = userRole == 'admin';
+        if (isAdmin) {
+          print(
+              '🔀 ROUTER: Profile loaded (admin) -> redirect to admin dashboard');
+          return '/admin';
+        } else {
+          print('🔀 ROUTER: Profile loaded (user) -> redirect to home');
+          return '/';
+        }
+      }
+
+      // Rule 4: If authenticated with profile loaded, check admin role and redirect
+      if (isAuthenticated && !isProfileLoading) {
         final isAdmin = userRole == 'admin';
 
         print('   isAdmin=$isAdmin');
@@ -100,9 +120,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           return '/admin';
         }
 
-        // If admin and on regular user pages (not admin route), redirect to admin
-        if (isAdmin && !isAdminRoute && !isAuthRoute) {
-          print('🔀 ROUTER: Admin accessing user pages -> redirect to admin dashboard');
+        // If admin and on regular user pages (not admin/loading route), redirect to admin
+        if (isAdmin && !isAdminRoute && !isAuthRoute && !isLoadingRoute) {
+          print(
+              '🔀 ROUTER: Admin accessing user pages -> redirect to admin dashboard');
           return '/admin';
         }
 
@@ -119,7 +140,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         }
       }
 
-      // Rule 3: If not authenticated, must go to auth pages (except auth routes)
+      // Rule 5: If not authenticated, must go to auth pages (except auth routes)
       if (!isAuthenticated && !isAuthRoute) {
         print('🔀 ROUTER: Not authenticated -> redirect to login');
         return '/auth/login';
@@ -129,6 +150,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // Loading Screen (for profile loading after auth)
+      GoRoute(
+        path: '/loading',
+        name: 'loading',
+        builder: (context, state) => const Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 24),
+                Text(
+                  'Memuat data...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+
       // Home Route
       GoRoute(
         path: '/',
