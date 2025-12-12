@@ -47,6 +47,9 @@ class GoRouterRefreshStream extends ChangeNotifier {
 final routerProvider = Provider<GoRouter>((ref) {
   // Watch auth state to trigger router refresh on auth changes
   ref.watch(authControllerProvider);
+  
+  // Watch profile to trigger refresh when profile loads
+  ref.watch(currentUserProfileProvider);
 
   return GoRouter(
     initialLocation: '/',
@@ -57,6 +60,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       // Safe access to auth state
       final authState = ref.read(authControllerProvider);
+      final profileAsync = ref.read(currentUserProfileProvider);
 
       final isAuthenticated = authState.maybeWhen(
         data: (user) => user != null,
@@ -65,29 +69,40 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
       final isAdminRoute = state.matchedLocation.startsWith('/admin');
-      final isLoading = authState.isLoading;
+      final isAuthLoading = authState.isLoading;
+      final isProfileLoading = profileAsync.isLoading;
 
-      print('🔀 ROUTER: location=${state.matchedLocation}, '
-          'auth=$isAuthenticated, loading=$isLoading');
+      // Get user role from profile
+      final userRole = profileAsync.maybeWhen(
+        data: (profile) => profile?.role,
+        orElse: () => null,
+      );
 
-      // Rule 1: If loading, stay on current page
-      if (isLoading) {
+      print('🔀 ROUTER: location=${state.matchedLocation}');
+      print('   auth=$isAuthenticated, role=$userRole');
+      print('   authLoading=$isAuthLoading, profileLoading=$isProfileLoading');
+
+      // Rule 1: If loading auth or profile, stay on current page
+      if (isAuthLoading || (isAuthenticated && isProfileLoading)) {
         print('🔀 ROUTER: Loading - staying on current page');
         return null;
       }
 
       // Rule 2: If authenticated, check admin role and redirect accordingly
       if (isAuthenticated) {
-        // Check user role
-        final profileAsync = ref.read(currentUserProfileProvider);
-        final isAdmin = profileAsync.maybeWhen(
-          data: (profile) => profile?.role == 'admin',
-          orElse: () => false,
-        );
+        final isAdmin = userRole == 'admin';
+
+        print('   isAdmin=$isAdmin');
 
         // If admin and on auth page, redirect to admin dashboard
         if (isAdmin && isAuthRoute) {
           print('🔀 ROUTER: Admin user -> redirect to admin dashboard');
+          return '/admin';
+        }
+
+        // If admin and on regular user pages (not admin route), redirect to admin
+        if (isAdmin && !isAdminRoute && !isAuthRoute) {
+          print('🔀 ROUTER: Admin accessing user pages -> redirect to admin dashboard');
           return '/admin';
         }
 

@@ -46,7 +46,7 @@ class _OwnerBookingManagementScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Booking Requests'),
+        title: const Text('Permintaan Booking'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -120,13 +120,13 @@ class _OwnerBookingManagementScreenState
                           DropdownMenuItem(
                               value: null, child: Text('Semua Status')),
                           DropdownMenuItem(
-                              value: 'pending', child: Text('Pending')),
+                              value: 'pending', child: Text('Menunggu')),
                           DropdownMenuItem(
-                              value: 'confirmed', child: Text('Confirmed')),
+                              value: 'confirmed', child: Text('Dikonfirmasi')),
                           DropdownMenuItem(
-                              value: 'active', child: Text('Active')),
+                              value: 'active', child: Text('Aktif')),
                           DropdownMenuItem(
-                              value: 'completed', child: Text('Completed')),
+                              value: 'completed', child: Text('Selesai')),
                         ],
                       ),
                     ),
@@ -170,11 +170,11 @@ class _OwnerBookingManagementScreenState
                   children: [
                     Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                     const SizedBox(height: 16),
-                    Text('Error: $error'),
+                    Text('Kesalahan: $error'),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => ref.invalidate(ownerBookingsProvider),
-                      child: const Text('Retry'),
+                      child: const Text('Coba Lagi'),
                     ),
                   ],
                 ),
@@ -198,7 +198,15 @@ class _OwnerBookingManagementScreenState
           ),
           const SizedBox(height: 16),
           Text(
-            status == null ? 'No bookings yet' : 'No ${status} bookings',
+            status == null
+                ? 'Belum ada booking'
+                : status == 'pending'
+                    ? 'Tidak ada booking menunggu'
+                    : status == 'confirmed'
+                        ? 'Tidak ada booking dikonfirmasi'
+                        : status == 'active'
+                            ? 'Tidak ada booking aktif'
+                            : 'Tidak ada booking selesai',
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey[600],
@@ -207,7 +215,7 @@ class _OwnerBookingManagementScreenState
           ),
           const SizedBox(height: 8),
           Text(
-            'Bookings will appear here',
+            'Booking akan muncul di sini',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[500],
@@ -300,7 +308,7 @@ class _OwnerBookingManagementScreenState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Renter: ${booking.userName}',
+                          'Penyewa: ${booking.userName}',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey[700],
@@ -333,7 +341,7 @@ class _OwnerBookingManagementScreenState
                 children: [
                   _buildInfoItem(
                     Icons.timer_outlined,
-                    '${booking.numberOfDays} day${booking.numberOfDays > 1 ? 's' : ''}',
+                    '${booking.numberOfDays} hari',
                   ),
                   _buildInfoItem(
                     booking.deliveryMethod == DeliveryMethod.delivery
@@ -360,7 +368,7 @@ class _OwnerBookingManagementScreenState
                       Icon(Icons.place, size: 14, color: Colors.orange[800]),
                       const SizedBox(width: 4),
                       Text(
-                        '${booking.distanceKm!.toStringAsFixed(1)} km • Delivery fee: ${booking.formattedDeliveryFee}',
+                        '${booking.distanceKm!.toStringAsFixed(1)} km • Biaya pengiriman: ${booking.formattedDeliveryFee}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.orange[900],
@@ -450,7 +458,7 @@ class _OwnerBookingManagementScreenState
                   child: ElevatedButton.icon(
                     onPressed: () => _handleStartRental(booking),
                     icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('Start Rental'),
+                    label: const Text('Mulai Rental'),
                   ),
                 ),
               ] else if (booking.status == BookingStatus.active) ...[
@@ -460,7 +468,7 @@ class _OwnerBookingManagementScreenState
                   child: ElevatedButton.icon(
                     onPressed: () => _handleCompleteRental(booking),
                     icon: const Icon(Icons.done_all, size: 18),
-                    label: const Text('Mark as Completed'),
+                    label: const Text('Tandai Selesai'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                     ),
@@ -736,7 +744,7 @@ class _OwnerBookingManagementScreenState
           children: [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 12),
-            Text('Accept Booking?'),
+            Text('Terima Booking?'),
           ],
         ),
         content: Column(
@@ -744,7 +752,7 @@ class _OwnerBookingManagementScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Confirm booking from ${booking.userName} for ${booking.product.name}?',
+              'Konfirmasi booking dari ${booking.userName} untuk ${booking.product.name}?',
             ),
             const SizedBox(height: 12),
             Container(
@@ -776,11 +784,11 @@ class _OwnerBookingManagementScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Accept'),
+            child: const Text('Terima'),
           ),
         ],
       ),
@@ -801,7 +809,7 @@ class _OwnerBookingManagementScreenState
                 children: [
                   Icon(Icons.check_circle, color: Colors.white),
                   SizedBox(width: 12),
-                  Text('Booking accepted!'),
+                  Text('Booking diterima!'),
                 ],
               ),
               backgroundColor: Colors.green,
@@ -840,23 +848,23 @@ class _OwnerBookingManagementScreenState
           children: [
             Icon(Icons.cancel, color: Colors.red),
             SizedBox(width: 12),
-            Text('Reject Booking?'),
+            Text('Tolak Booking?'),
           ],
         ),
         content: Text(
-          'Are you sure you want to reject booking from ${booking.userName}?',
+          'Apakah Anda yakin ingin menolak booking dari ${booking.userName}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Reject'),
+            child: const Text('Tolak'),
           ),
         ],
       ),
@@ -873,7 +881,7 @@ class _OwnerBookingManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Booking rejected'),
+              content: Text('Booking ditolak'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -882,7 +890,8 @@ class _OwnerBookingManagementScreenState
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text('Kesalahan: $e'), backgroundColor: Colors.red),
           );
         }
       }
@@ -898,20 +907,20 @@ class _OwnerBookingManagementScreenState
           children: [
             Icon(Icons.play_arrow, color: Colors.blue),
             SizedBox(width: 12),
-            Text('Start Rental?'),
+            Text('Mulai Rental?'),
           ],
         ),
         content: Text(
-          'Mark this booking as active? This means ${booking.userName} has received the ${booking.product.name}.',
+          'Tandai booking ini sebagai aktif? Artinya ${booking.userName} telah menerima ${booking.product.name}.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Start'),
+            child: const Text('Mulai'),
           ),
         ],
       ),
@@ -928,7 +937,7 @@ class _OwnerBookingManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Rental started!'),
+              content: Text('Rental dimulai!'),
               backgroundColor: Colors.blue,
             ),
           );
@@ -937,7 +946,8 @@ class _OwnerBookingManagementScreenState
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text('Kesalahan: $e'), backgroundColor: Colors.red),
           );
         }
       }
@@ -953,23 +963,23 @@ class _OwnerBookingManagementScreenState
           children: [
             Icon(Icons.done_all, color: Colors.green),
             SizedBox(width: 12),
-            Text('Complete Rental?'),
+            Text('Selesaikan Rental?'),
           ],
         ),
         content: Text(
-          'Mark this rental as completed? The ${booking.product.name} has been returned by ${booking.userName}.',
+          'Tandai rental ini sebagai selesai? ${booking.product.name} telah dikembalikan oleh ${booking.userName}.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
             ),
-            child: const Text('Complete'),
+            child: const Text('Selesai'),
           ),
         ],
       ),
@@ -986,7 +996,7 @@ class _OwnerBookingManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Rental completed!'),
+              content: Text('Rental selesai!'),
               backgroundColor: Colors.green,
             ),
           );
@@ -995,7 +1005,8 @@ class _OwnerBookingManagementScreenState
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text('Kesalahan: $e'), backgroundColor: Colors.red),
           );
         }
       }

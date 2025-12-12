@@ -17,19 +17,19 @@ class MyListingsPage extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Product'),
+        title: const Text('Hapus Produk'),
         content: Text(
-          'Are you sure you want to delete "$productName"? This action cannot be undone.',
+          'Apakah Anda yakin ingin menghapus "$productName"? Tindakan ini tidak dapat dibatalkan.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Batal'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text('Hapus'),
           ),
         ],
       ),
@@ -41,13 +41,13 @@ class MyListingsPage extends ConsumerWidget {
 
       if (success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Product deleted successfully')),
+          const SnackBar(content: Text('Produk berhasil dihapus')),
         );
         ref.invalidate(myProductsProvider);
       } else if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to delete product'),
+            content: Text('Gagal menghapus produk'),
             backgroundColor: Colors.red,
           ),
         );
@@ -61,7 +61,7 @@ class MyListingsPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Listings'),
+        title: const Text('Daftar Produk Saya'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

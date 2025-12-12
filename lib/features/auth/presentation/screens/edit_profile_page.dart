@@ -118,16 +118,16 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orange),
             SizedBox(width: 12),
-            Text('Discard Changes?'),
+            Text('Buang Perubahan?'),
           ],
         ),
         content: const Text(
-          'You have unsaved changes. Are you sure you want to leave without saving?',
+          'Anda memiliki perubahan yang belum disimpan. Apakah Anda yakin ingin keluar tanpa menyimpan?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Stay'),
+            child: const Text('Tetap'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -135,7 +135,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Discard'),
+            child: const Text('Buang'),
           ),
         ],
       ),
@@ -167,7 +167,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  'Choose Photo Source',
+                  'Pilih Sumber Foto',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
@@ -180,8 +180,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     ),
                     child: Icon(Icons.camera_alt, color: AppColors.primary),
                   ),
-                  title: const Text('Camera'),
-                  subtitle: const Text('Take a new photo'),
+                  title: const Text('Kamera'),
+                  subtitle: const Text('Ambil foto baru'),
                   onTap: () => Navigator.pop(context, ImageSource.camera),
                 ),
                 ListTile(
@@ -193,8 +193,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     ),
                     child: Icon(Icons.photo_library, color: AppColors.primary),
                   ),
-                  title: const Text('Gallery'),
-                  subtitle: const Text('Choose from your photos'),
+                  title: const Text('Galeri'),
+                  subtitle: const Text('Pilih dari foto Anda'),
                   onTap: () => Navigator.pop(context, ImageSource.gallery),
                 ),
               ],
@@ -222,7 +222,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to pick image: ${e.toString()}'),
+            content: Text('Gagal memilih gambar: ${e.toString()}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -245,7 +245,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       final position = await _locationService.getCurrentLocation();
 
       if (position == null) {
-        throw Exception('Unable to get location');
+        throw Exception('Tidak dapat mengambil lokasi');
       }
 
       // Get address and city from coordinates
@@ -274,7 +274,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Location updated: $city')),
+                Expanded(child: Text('Lokasi diperbarui: $city')),
               ],
             ),
             backgroundColor: Colors.green,
@@ -346,7 +346,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 12),
-                Text('Profile updated successfully!'),
+                Text('Profil berhasil diperbarui!'),
               ],
             ),
             backgroundColor: Colors.green,
@@ -360,7 +360,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           _selectedImageFile = null;
         });
       } else if (mounted) {
-        throw Exception('Failed to update profile');
+        throw Exception('Gagal memperbarui profil');
       }
     } catch (e) {
       if (mounted) {
@@ -501,7 +501,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                   Icon(Icons.check_circle, size: 16, color: Colors.blue[700]),
                   const SizedBox(width: 8),
                   Text(
-                    'New photo selected',
+                    'Foto baru dipilih',
                     style: TextStyle(
                       color: Colors.blue[700],
                       fontWeight: FontWeight.w600,
@@ -533,14 +533,14 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Edit Profile'),
+          title: const Text('Edit Profil'),
           elevation: 0,
           actions: [
             if (_hasChanges && !isLoading)
               IconButton(
                 onPressed: _saveProfile,
                 icon: const Icon(Icons.check),
-                tooltip: 'Save Changes',
+                tooltip: 'Simpan Perubahan',
               ),
           ],
         ),
@@ -561,7 +561,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               color: AppColors.primary),
                           const SizedBox(width: 8),
                           Text(
-                            'Edit Information',
+                            'Edit Informasi',
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge
@@ -573,7 +573,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Update your profile information below',
+                        'Perbarui informasi profil Anda di bawah ini',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -582,10 +582,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       TextFormField(
                         initialValue: widget.profile.email,
                         decoration: InputDecoration(
-                          labelText: 'Email Address',
+                          labelText: 'Alamat Email',
                           prefixIcon: const Icon(Icons.email_outlined),
                           suffixIcon: Tooltip(
-                            message: 'Email cannot be changed',
+                            message: 'Email tidak dapat diubah',
                             child: Icon(Icons.lock_outline,
                                 size: 20, color: Colors.grey[400]),
                           ),
@@ -593,7 +593,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               borderRadius: BorderRadius.circular(12)),
                           filled: true,
                           fillColor: Colors.grey[50],
-                          helperText: 'Email is managed by your account',
+                          helperText: 'Email dikelola oleh akun Anda',
                         ),
                         enabled: false,
                         style: TextStyle(color: Colors.grey[700]),
@@ -602,12 +602,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       TextFormField(
                         controller: _fullNameController,
                         decoration: InputDecoration(
-                          labelText: 'Full Name *',
+                          labelText: 'Nama Lengkap *',
                           prefixIcon: const Icon(Icons.person_outline),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12)),
-                          hintText: 'e.g. John Doe',
-                          helperText: 'Your display name (3-50 characters)',
+                          hintText: 'cth. John Doe',
+                          helperText: 'Nama tampilan Anda (3-50 karakter)',
                           counterText: '',
                         ),
                         maxLength: 50,
@@ -615,14 +615,14 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         enabled: !isLoading,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return '⚠️ Full name is required';
+                            return '⚠️ Nama lengkap wajib diisi';
                           }
                           if (value.trim().length < 3) {
-                            return '⚠️ Name must be at least 3 characters';
+                            return '⚠️ Nama minimal 3 karakter';
                           }
                           if (!RegExp(r"^[a-zA-Z\s\-'\.]+$")
                               .hasMatch(value.trim())) {
-                            return '⚠️ Name can only contain letters and spaces';
+                            return '⚠️ Nama hanya boleh berisi huruf dan spasi';
                           }
                           return null;
                         },
@@ -631,12 +631,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       TextFormField(
                         controller: _phoneController,
                         decoration: InputDecoration(
-                          labelText: 'Phone Number (Optional)',
+                          labelText: 'Nomor Telepon (Opsional)',
                           prefixIcon: const Icon(Icons.phone_outlined),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12)),
-                          hintText: 'e.g. 081234567890',
-                          helperText: 'Indonesian format (10-15 digits)',
+                          hintText: 'cth. 081234567890',
+                          helperText: 'Format Indonesia (10-15 digit)',
                           counterText: '',
                         ),
                         maxLength: 15,
@@ -649,11 +649,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           if (value != null && value.trim().isNotEmpty) {
                             final clean = value.trim();
                             if (clean.length < 10) {
-                              return '⚠️ Phone must be at least 10 digits';
+                              return '⚠️ Nomor telepon minimal 10 digit';
                             }
                             if (!RegExp(r'^(08|628|\+628)[0-9]+$')
                                 .hasMatch(clean)) {
-                              return '⚠️ Invalid Indonesian phone format';
+                              return '⚠️ Format nomor telepon Indonesia tidak valid';
                             }
                           }
                           return null;
@@ -668,7 +668,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               color: AppColors.primary),
                           const SizedBox(width: 8),
                           Text(
-                            'Location',
+                            'Lokasi',
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
@@ -680,7 +680,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Set your location to discover products near you',
+                        'Atur lokasi Anda untuk menemukan produk di sekitar Anda',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -705,7 +705,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                       color: Colors.green[700], size: 20),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Location Set',
+                                    'Lokasi Telah Diatur',
                                     style: TextStyle(
                                       color: Colors.green[800],
                                       fontWeight: FontWeight.w600,
@@ -722,7 +722,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
-                                      _city ?? 'Unknown City',
+                                      _city ?? 'Kota Tidak Diketahui',
                                       style: TextStyle(
                                         color: Colors.green[800],
                                         fontSize: 13,
@@ -744,15 +744,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ],
-                              const SizedBox(height: 4),
-                              Text(
-                                'Lat: ${_latitude!.toStringAsFixed(6)}, Lon: ${_longitude!.toStringAsFixed(6)}',
-                                style: TextStyle(
-                                  color: Colors.green[600],
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
                             ],
                           ),
                         )
@@ -771,7 +762,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  'No location set yet. Tap button below to set your location.',
+                                  'Lokasi belum diatur. Ketuk tombol di bawah untuk mengatur lokasi Anda.',
                                   style: TextStyle(
                                     color: Colors.orange[800],
                                     fontSize: 12,
@@ -809,10 +800,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             : Icon(Icons.my_location, size: 20),
                         label: Text(
                           _isGettingLocation
-                              ? 'Getting Location...'
+                              ? 'Mengambil Lokasi...'
                               : _latitude != null
-                                  ? 'Update Location'
-                                  : 'Get Current Location',
+                                  ? 'Perbarui Lokasi'
+                                  : 'Ambil Lokasi Saat Ini',
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -820,32 +811,6 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         ),
                       ),
 
-                      const SizedBox(height: 24),
-                      if (!isLoading)
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[50],
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue[200]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline,
-                                  color: Colors.blue[700], size: 20),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  '• Location is used for nearby products\n• Only city is visible to others\n• You can update anytime',
-                                  style: TextStyle(
-                                      color: Colors.blue[800],
-                                      fontSize: 12,
-                                      height: 1.5),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       const SizedBox(height: 32),
                       ElevatedButton(
                         onPressed:
@@ -871,7 +836,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                   const Icon(Icons.save_outlined, size: 20),
                                   const SizedBox(width: 8),
                                   Text(
-                                    _hasChanges ? 'Save Changes' : 'No Changes',
+                                    _hasChanges
+                                        ? 'Simpan Perubahan'
+                                        : 'Tidak Ada Perubahan',
                                     style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600),
@@ -897,7 +864,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               borderRadius: BorderRadius.circular(12)),
                         ),
                         child: Text(
-                          _hasChanges ? 'Discard Changes' : 'Back',
+                          _hasChanges ? 'Buang Perubahan' : 'Kembali',
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                         ),

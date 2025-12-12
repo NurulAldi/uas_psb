@@ -59,7 +59,7 @@ class BookingDetailScreen extends ConsumerWidget {
                       size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
-                    'Booking not found',
+                    'Booking tidak ditemukan',
                     style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                 ],
@@ -336,7 +336,7 @@ class BookingDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Booking Information',
+              'Informasi Booking',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -354,7 +354,7 @@ class BookingDetailScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             _InfoRow(
               icon: Icons.timer_outlined,
-              label: 'Duration',
+              label: 'Durasi',
               value: '${booking.numberOfDays} hari',
             ),
           ],
@@ -373,7 +373,7 @@ class BookingDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Delivery Information',
+              'Informasi Pengiriman',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -381,23 +381,23 @@ class BookingDetailScreen extends ConsumerWidget {
               icon: booking.deliveryMethod == DeliveryMethod.delivery
                   ? Icons.local_shipping
                   : Icons.directions_walk,
-              label: 'Method',
+              label: 'Metode',
               value: booking.deliveryMethod.label,
             ),
             if (booking.deliveryMethod == DeliveryMethod.delivery) ...[
               const SizedBox(height: 12),
               _InfoRow(
                 icon: Icons.place,
-                label: 'Distance',
+                label: 'Jarak',
                 value: booking.distanceKm != null
                     ? '${booking.distanceKm!.toStringAsFixed(1)} km'
-                    : 'N/A',
+                    : 'Tidak ada',
               ),
               if (booking.renterAddress != null) ...[
                 const SizedBox(height: 12),
                 _InfoRow(
                   icon: Icons.home,
-                  label: 'Delivery Address',
+                  label: 'Alamat Pengiriman',
                   value: booking.renterAddress!,
                   valueMaxLines: 3,
                 ),
@@ -423,7 +423,7 @@ class BookingDetailScreen extends ConsumerWidget {
                 Icon(Icons.notes, size: 20, color: Colors.grey[700]),
                 const SizedBox(width: 8),
                 const Text(
-                  'Notes',
+                  'Catatan',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -449,7 +449,7 @@ class BookingDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Price Breakdown',
+              'Rincian Harga',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -472,7 +472,7 @@ class BookingDetailScreen extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Delivery Fee',
+                    'Biaya Pengiriman',
                     style: TextStyle(color: Colors.grey[700]),
                   ),
                   Text(
@@ -511,11 +511,227 @@ class BookingDetailScreen extends ConsumerWidget {
     // Get current user
     final currentUser = ref.watch(currentUserProvider);
 
-    // If current user is the owner, don't show action buttons
-    if (currentUser != null && booking.product.ownerId == currentUser.id) {
-      return const SizedBox.shrink();
+    // Check if current user is the owner
+    final isOwner =
+        currentUser != null && booking.product.ownerId == currentUser.id;
+
+    // OWNER ACTION BUTTONS
+    if (isOwner) {
+      return _buildOwnerActionButtons(context, ref, booking);
     }
 
+    // RENTER ACTION BUTTONS
+    return _buildRenterActionButtons(context, ref, booking);
+  }
+
+  /// Owner-specific action buttons
+  Widget _buildOwnerActionButtons(
+      BuildContext context, WidgetRef ref, BookingWithProduct booking) {
+    // Pending: Show Confirm/Reject buttons (only if paid)
+    if (booking.status == BookingStatus.pending) {
+      final paymentAsync = ref.watch(paymentByBookingProvider(booking.id));
+
+      return paymentAsync.when(
+        data: (payment) {
+          final isPaid = payment?.status == PaymentStatus.paid;
+
+          if (!isPaid) {
+            // Show info that payment is pending
+            return Card(
+              elevation: 2,
+              color: Colors.orange[50],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.orange[300]!, width: 1.5),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    Icon(Icons.pending, color: Colors.orange[700], size: 28),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '⏳ Menunggu pembayaran dari peminjam',
+                        style: TextStyle(
+                          color: Colors.orange[900],
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // Payment completed, show confirm/reject buttons
+          return Column(
+            children: [
+              // Payment status indicator
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green[300]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle,
+                        color: Colors.green[700], size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      '✓ Pembayaran Diterima',
+                      style: TextStyle(
+                        color: Colors.green[900],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          _handleRejectBooking(context, ref, booking),
+                      icon: const Icon(Icons.close, size: 18),
+                      label: const Text('Tolak'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _handleConfirmBooking(context, ref, booking),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Terima Booking'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, __) => const SizedBox.shrink(),
+      );
+    }
+
+    // Confirmed: Show Start Rental button
+    if (booking.status == BookingStatus.confirmed) {
+      return Column(
+        children: [
+          Card(
+            elevation: 2,
+            color: Colors.blue[50],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.blue[300]!, width: 1.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700], size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Booking telah dikonfirmasi. Aktifkan saat barang diserahkan.',
+                      style: TextStyle(
+                        color: Colors.blue[900],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _handleStartRental(context, ref, booking),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Mulai Rental'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Active: Show Mark as Completed button
+    if (booking.status == BookingStatus.active) {
+      return Column(
+        children: [
+          Card(
+            elevation: 2,
+            color: Colors.green[50],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.green[300]!, width: 1.5),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle_outline,
+                      color: Colors.green[700], size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Rental sedang berlangsung. Tandai selesai saat barang dikembalikan.',
+                      style: TextStyle(
+                        color: Colors.green[900],
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _handleCompleteRental(context, ref, booking),
+              icon: const Icon(Icons.done_all),
+              label: const Text('Tandai Selesai'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // For completed or cancelled, no action buttons
+    return const SizedBox.shrink();
+  }
+
+  /// Renter-specific action buttons
+  Widget _buildRenterActionButtons(
+      BuildContext context, WidgetRef ref, BookingWithProduct booking) {
     // If confirmed, show waiting for activation info
     if (booking.status == BookingStatus.confirmed) {
       return Card(
@@ -682,21 +898,21 @@ class BookingDetailScreen extends ConsumerWidget {
           children: [
             Icon(Icons.warning, color: Colors.orange),
             SizedBox(width: 12),
-            Text('Cancel Booking?'),
+            Text('Batalkan Booking?'),
           ],
         ),
         content: const Text(
-          'Are you sure you want to cancel this booking? This action cannot be undone.',
+          'Apakah Anda yakin ingin membatalkan booking ini? Tindakan ini tidak dapat dibatalkan.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
+            child: const Text('Tidak'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Yes, Cancel'),
+            child: const Text('Ya, Batalkan'),
           ),
         ],
       ),
@@ -710,7 +926,7 @@ class BookingDetailScreen extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Booking cancelled successfully'),
+              content: Text('Booking berhasil dibatalkan'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -725,6 +941,300 @@ class BookingDetailScreen extends ConsumerWidget {
               content: Text('Kesalahan: $e'),
               backgroundColor: AppColors.error,
             ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleConfirmBooking(
+    BuildContext context,
+    WidgetRef ref,
+    BookingWithProduct booking,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 12),
+            Text('Terima Booking?'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Konfirmasi booking dari ${booking.userName} untuk ${booking.product.name}?',
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green[700], size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pembayaran sudah diterima',
+                      style: TextStyle(
+                        color: Colors.green[900],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Terima'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final repository = BookingRepository();
+        await repository.updateBookingStatus(
+          bookingId: booking.id,
+          status: BookingStatus.confirmed,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Booking diterima!'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          ref.invalidate(bookingWithProductProvider(booking.id));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          final errorMessage = e.toString().replaceFirst('Exception: ', '');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(errorMessage)),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleRejectBooking(
+    BuildContext context,
+    WidgetRef ref,
+    BookingWithProduct booking,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel, color: Colors.red),
+            SizedBox(width: 12),
+            Text('Tolak Booking?'),
+          ],
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin menolak booking dari ${booking.userName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Tolak'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final repository = BookingRepository();
+        await repository.updateBookingStatus(
+          bookingId: booking.id,
+          status: BookingStatus.cancelled,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Booking ditolak'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          ref.invalidate(bookingWithProductProvider(booking.id));
+          context.go('/owner/bookings');
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Kesalahan: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleStartRental(
+    BuildContext context,
+    WidgetRef ref,
+    BookingWithProduct booking,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.play_arrow, color: Colors.blue),
+            SizedBox(width: 12),
+            Text('Mulai Rental?'),
+          ],
+        ),
+        content: Text(
+          'Tandai booking ini sebagai aktif? Artinya ${booking.userName} telah menerima ${booking.product.name}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Mulai'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final repository = BookingRepository();
+        await repository.updateBookingStatus(
+          bookingId: booking.id,
+          status: BookingStatus.active,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Rental dimulai!'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+          ref.invalidate(bookingWithProductProvider(booking.id));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Kesalahan: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleCompleteRental(
+    BuildContext context,
+    WidgetRef ref,
+    BookingWithProduct booking,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.done_all, color: Colors.green),
+            SizedBox(width: 12),
+            Text('Selesaikan Rental?'),
+          ],
+        ),
+        content: Text(
+          'Tandai rental ini sebagai selesai? ${booking.product.name} telah dikembalikan oleh ${booking.userName}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: const Text('Selesai'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final repository = BookingRepository();
+        await repository.updateBookingStatus(
+          bookingId: booking.id,
+          status: BookingStatus.completed,
+        );
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Rental selesai!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          ref.invalidate(bookingWithProductProvider(booking.id));
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('Kesalahan: $e'), backgroundColor: Colors.red),
           );
         }
       }
@@ -830,7 +1340,7 @@ class BookingDetailScreen extends ConsumerWidget {
                     Icon(Icons.payment, color: AppColors.primary),
                     const SizedBox(width: 12),
                     const Text(
-                      'Payment Information',
+                      'Informasi Pembayaran',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -840,19 +1350,19 @@ class BookingDetailScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 _buildPaymentInfoRow(
-                  'Order ID',
+                  'ID Pesanan',
                   payment.orderId.length > 30
                       ? '${payment.orderId.substring(0, 30)}...'
                       : payment.orderId,
                 ),
                 const SizedBox(height: 8),
                 _buildPaymentInfoRow(
-                  'Amount',
+                  'Jumlah',
                   payment.formattedAmount,
                 ),
                 const SizedBox(height: 8),
                 _buildPaymentInfoRow(
-                  'Method',
+                  'Metode',
                   payment.method.label,
                 ),
                 const SizedBox(height: 12),
@@ -899,7 +1409,7 @@ class BookingDetailScreen extends ConsumerWidget {
                 if (payment.paidAt != null) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Paid at: ${_formatDate(payment.paidAt!)} ${payment.paidAt!.hour.toString().padLeft(2, '0')}:${payment.paidAt!.minute.toString().padLeft(2, '0')}',
+                    'Dibayar pada: ${_formatDate(payment.paidAt!)} ${payment.paidAt!.hour.toString().padLeft(2, '0')}:${payment.paidAt!.minute.toString().padLeft(2, '0')}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey[600],
@@ -924,7 +1434,7 @@ class BookingDetailScreen extends ConsumerWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               SizedBox(width: 12),
-              Text('Loading payment status...'),
+              Text('Memuat status pembayaran...'),
             ],
           ),
         ),

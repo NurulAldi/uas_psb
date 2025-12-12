@@ -75,8 +75,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 context.push('/bookings');
               } else if (value == 'booking-requests') {
                 context.push('/owner/bookings');
-              } else if (value == 'admin-dashboard') {
-                context.push('/admin/dashboard');
               }
             },
             itemBuilder: (context) => [
@@ -109,7 +107,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.edit, size: 18),
                     SizedBox(width: 8),
-                    Text('Edit Profile'),
+                    Text('Edit Profil'),
                   ],
                 ),
               ),
@@ -129,7 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.inbox, size: 18),
                     SizedBox(width: 8),
-                    Text('Booking Requests'),
+                    Text('Permintaan Booking'),
                   ],
                 ),
               ),
@@ -139,28 +137,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.list_alt, size: 18),
                     SizedBox(width: 8),
-                    Text('My Listings'),
+                    Text('Daftar Produk Saya'),
                   ],
                 ),
               ),
-              // Admin Dashboard (only for admins)
-              if (userProfile?.role == 'admin') ...[
-                const PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'admin-dashboard',
-                  child: Row(
-                    children: [
-                      Icon(Icons.admin_panel_settings,
-                          size: 18, color: Colors.deepPurple[700]),
-                      const SizedBox(width: 8),
-                      Text('Admin Dashboard',
-                          style: TextStyle(
-                              color: Colors.deepPurple[700],
-                              fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
-              ],
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'logout',
@@ -201,7 +181,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         });
                       },
                       decoration: InputDecoration(
-                        hintText: 'Search camera gear...',
+                        hintText: 'Cari peralatan kamera...',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
@@ -263,7 +243,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   color: Colors.white, size: 20),
                               const SizedBox(width: 8),
                               Text(
-                                'Nearby',
+                                'Terdekat',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
@@ -400,10 +380,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Text(
                     _searchQuery.isNotEmpty
-                        ? 'Search Results'
+                        ? 'Hasil Pencarian'
                         : _selectedCategory != null
-                            ? '${_selectedCategory!.name.toUpperCase()} Products'
-                            : 'All Products',
+                            ? 'Produk ${_selectedCategory!.name.toUpperCase()}'
+                            : 'Semua Produk',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   if (_searchQuery.isEmpty && _selectedCategory == null)
@@ -416,7 +396,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Row(
                         children: [
                           Text(
-                            'See all',
+                            'Lihat semua',
                             style: Theme.of(context)
                                 .textTheme
                                 .bodyMedium
@@ -479,8 +459,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: 16),
                   Text(
                     _searchQuery.isNotEmpty || _selectedCategory != null
-                        ? 'No products found'
-                        : 'No products available yet',
+                        ? 'Tidak ada produk ditemukan'
+                        : 'Belum ada produk tersedia',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -488,8 +468,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: 8),
                   Text(
                     _searchQuery.isNotEmpty || _selectedCategory != null
-                        ? 'Try adjusting your search or filter'
-                        : 'Check back later for new camera equipment',
+                        ? 'Coba sesuaikan pencarian atau filter Anda'
+                        : 'Cek kembali nanti untuk peralatan kamera baru',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.textTertiary,
                         ),
@@ -510,7 +490,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Text(
-                  '${filteredProducts.length} ${filteredProducts.length == 1 ? 'product' : 'products'} found',
+                  '${filteredProducts.length} produk ditemukan',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -550,7 +530,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               CircularProgressIndicator(color: AppColors.primary),
               const SizedBox(height: 16),
               Text(
-                'Loading products...',
+                'Memuat produk...',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -583,7 +563,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.refresh(featuredProductsProvider),
-                child: const Text('Retry'),
+                child: const Text('Coba Lagi'),
               ),
             ],
           ),

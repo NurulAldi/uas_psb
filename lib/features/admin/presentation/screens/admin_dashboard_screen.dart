@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
-import 'package:rentlens/features/admin/providers/current_admin_provider.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart';
+import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/admin/presentation/screens/users_management_screen.dart';
 import 'package:rentlens/features/admin/presentation/screens/reports_management_screen.dart';
 import 'package:rentlens/features/admin/presentation/screens/statistics_screen.dart';
@@ -47,14 +48,17 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        content: const Text('Apakah Anda yakin ingin keluar dari dashboard admin?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Batal'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
             child: const Text('Logout'),
           ),
         ],
@@ -62,87 +66,129 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
 
     if (shouldLogout == true && mounted) {
-      // Clear admin state
-      ref.read(currentAdminProvider.notifier).state = null;
-      // Navigate to login
-      context.go('/login');
+      // Sign out properly through auth controller
+      await ref.read(authControllerProvider.notifier).signOut();
+      if (mounted) {
+        context.go('/auth/login');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final admin = ref.watch(currentAdminProvider);
+    final profileAsync = ref.watch(currentUserProfileProvider);
 
-    // Redirect if not admin
-    if (admin == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          context.go('/login');
+    return profileAsync.when(
+      data: (profile) {
+        // Double check if user is actually admin
+        if (profile?.role != 'admin') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              context.go('/');
+            }
+          });
+          return const Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.block, size: 64, color: Colors.red),
+                  SizedBox(height: 16),
+                  Text('Akses Ditolak - Hanya untuk Admin'),
+                ],
+              ),
+            ),
+          );
         }
-      });
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: Text(
-                    admin.name[0].toUpperCase(),
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Admin Dashboard - RentLens'),
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            automaticallyImplyLeading: false,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
                   children: [
-                    Text(
-                      admin.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    CircleAvatar(
+                      backgroundColor: Colors.white,
+                      backgroundImage: profile?.avatarUrl != null
+                          ? NetworkImage(profile!.avatarUrl!)
+                          : null,
+                      child: profile?.avatarUrl == null
+                          ? Text(
+                              (profile?.fullName ?? 'A')[0].toUpperCase(),
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
                     ),
-                    Text(
-                      'Administrator',
-                      style: const TextStyle(fontSize: 12),
+                    const SizedBox(width: 12),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile?.fullName ?? 'Admin',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Text(
+                          'Administrator',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      icon: const Icon(Icons.logout),
+                      onPressed: _handleLogout,
+                      tooltip: 'Logout',
                     ),
                   ],
                 ),
-                const SizedBox(width: 16),
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: _handleLogout,
-                  tooltip: 'Logout',
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+          body: _screens[_selectedIndex],
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            destinations: _destinations,
+          ),
+        );
+      },
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       ),
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: _destinations,
+      error: (error, stack) => Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Error: $error'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.go('/auth/login'),
+                child: const Text('Kembali ke Login'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
