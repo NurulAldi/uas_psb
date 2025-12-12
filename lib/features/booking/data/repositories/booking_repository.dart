@@ -115,12 +115,31 @@ class BookingRepository {
   }
 
   /// Update booking status
+  /// ✨ UPDATED: Now validates payment status before confirming
   Future<Booking> updateBookingStatus({
     required String bookingId,
     required BookingStatus status,
   }) async {
     try {
       print('📦 BOOKING REPOSITORY: Updating booking status...');
+
+      // ✨ NEW: If owner is trying to confirm, check payment first
+      if (status == BookingStatus.confirmed) {
+        final booking = await getBookingById(bookingId);
+        if (booking == null) {
+          throw Exception('Booking not found');
+        }
+
+        // ✨ VALIDATION: Payment must be completed
+        if (booking.paymentStatus != BookingPaymentStatus.paid) {
+          throw Exception(
+            'Tidak bisa menerima booking. Pembayaran belum selesai. '
+            'Status pembayaran saat ini: ${booking.paymentStatusText}',
+          );
+        }
+
+        print('✅ Payment verified: PAID');
+      }
 
       final response = await _supabase
           .from('bookings')

@@ -65,6 +65,7 @@ class BookingWithProduct {
   DateTime get endDate => booking.endDate;
   double get totalPrice => booking.totalPrice;
   BookingStatus get status => booking.status;
+  BookingPaymentStatus get paymentStatus => booking.paymentStatus; // ✨ NEW
   String? get paymentProofUrl => booking.paymentProofUrl;
   DateTime get createdAt => booking.createdAt;
   DateTime get updatedAt => booking.updatedAt;
@@ -90,6 +91,12 @@ class BookingWithProduct {
   double get productSubtotal => booking.productSubtotal;
   String get statusText => booking.statusText;
   String get statusColor => booking.statusColor;
+
+  // ✨ NEW: Payment-related getters
+  bool get isPaymentCompleted => booking.isPaymentCompleted;
+  bool get canBeConfirmedByOwner => booking.canBeConfirmedByOwner;
+  String get paymentStatusText => booking.paymentStatusText;
+  String get userFriendlyStatus => booking.userFriendlyStatus;
 
   @override
   String toString() {

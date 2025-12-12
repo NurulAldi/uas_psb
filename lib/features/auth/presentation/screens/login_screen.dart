@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
-import 'package:rentlens/features/admin/data/admin_repository.dart';
-import 'package:rentlens/features/admin/providers/current_admin_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -33,20 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    // Try admin login first
-    final adminRepo = AdminRepository();
-    final admin = await adminRepo.authenticateAdmin(email, password);
-
-    if (admin != null) {
-      // Admin login successful
-      ref.read(currentAdminProvider.notifier).state = admin;
-      if (mounted) {
-        context.go('/admin');
-      }
-      return;
-    }
-
-    // Not admin, try regular user login
+    // Sign in with Supabase Auth
     await ref.read(authControllerProvider.notifier).signIn(
           email,
           password,

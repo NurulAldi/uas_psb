@@ -37,29 +37,8 @@ class OwnerBookingManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _OwnerBookingManagementScreenState
-    extends ConsumerState<OwnerBookingManagementScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final _statusFilters = [
-    null, // All
-    'pending',
-    'confirmed',
-    'active',
-    'completed',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: _statusFilters.length, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+    extends ConsumerState<OwnerBookingManagementScreen> {
+  String? _selectedStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -68,106 +47,141 @@ class _OwnerBookingManagementScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Booking Requests'),
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: [
-            _buildTab('All', null, bookingsAsync),
-            _buildTab('Pending', 'pending', bookingsAsync),
-            _buildTab('Confirmed', 'confirmed', bookingsAsync),
-            _buildTab('Active', 'active', bookingsAsync),
-            _buildTab('Completed', 'completed', bookingsAsync),
-          ],
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              context.go('/');
+            }
+          },
         ),
-      ),
-      body: bookingsAsync.when(
-        data: (bookings) {
-          if (bookings.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          return TabBarView(
-            controller: _tabController,
-            children: _statusFilters.map((status) {
-              final filteredBookings = status == null
-                  ? bookings
-                  : bookings.where((b) => b.status.value == status).toList();
-
-              if (filteredBookings.isEmpty) {
-                return _buildEmptyState(status: status);
-              }
-
-              return RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(ownerBookingsProvider);
-                },
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredBookings.length,
-                  itemBuilder: (context, index) {
-                    return _buildBookingCard(filteredBookings[index]);
-                  },
-                ),
-              );
-            }).toList(),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
-              const SizedBox(height: 16),
-              Text('Error: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(ownerBookingsProvider),
-                child: const Text('Retry'),
-              ),
-            ],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref.refresh(ownerBookingsProvider),
+            tooltip: 'Muat Ulang',
           ),
-        ),
+        ],
+        elevation: 0,
       ),
-    );
-  }
-
-  Widget _buildTab(String label, String? status, AsyncValue bookingsAsync) {
-    return Tab(
-      child: bookingsAsync.when(
-        data: (bookings) {
-          final count = status == null
-              ? bookings.length
-              : bookings.where((b) => b.status.value == status).length;
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label),
-              if (count > 0) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(10),
+      body: Column(
+        children: [
+          // Filter Dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.filter_list, color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Filter:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
-                  child: Text(
-                    '$count',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: _selectedStatus,
+                        isExpanded: true,
+                        icon: Icon(Icons.arrow_drop_down,
+                            color: AppColors.primary),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedStatus = value;
+                          });
+                        },
+                        items: [
+                          DropdownMenuItem(
+                              value: null, child: Text('Semua Status')),
+                          DropdownMenuItem(
+                              value: 'pending', child: Text('Pending')),
+                          DropdownMenuItem(
+                              value: 'confirmed', child: Text('Confirmed')),
+                          DropdownMenuItem(
+                              value: 'active', child: Text('Active')),
+                          DropdownMenuItem(
+                              value: 'completed', child: Text('Completed')),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ],
-            ],
-          );
-        },
-        loading: () => Text(label),
-        error: (_, __) => Text(label),
+            ),
+          ),
+          // Booking List
+          Expanded(
+            child: bookingsAsync.when(
+              data: (bookings) {
+                // Filter bookings
+                final filteredBookings = _selectedStatus == null
+                    ? bookings
+                    : bookings
+                        .where((b) => b.status.value == _selectedStatus)
+                        .toList();
+
+                if (filteredBookings.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(ownerBookingsProvider);
+                  },
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filteredBookings.length,
+                    itemBuilder: (context, index) {
+                      return _buildBookingCard(filteredBookings[index]);
+                    },
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                    const SizedBox(height: 16),
+                    Text('Error: $error'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => ref.invalidate(ownerBookingsProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -389,6 +403,12 @@ class _OwnerBookingManagementScreenState
                 ),
               ),
 
+              // ✨ NEW: Payment Status Badge
+              if (booking.status == BookingStatus.pending) ...[
+                const SizedBox(height: 12),
+                _buildPaymentStatusInfo(booking),
+              ],
+
               // Action Buttons
               if (booking.status == BookingStatus.pending) ...[
                 const SizedBox(height: 16),
@@ -409,9 +429,16 @@ class _OwnerBookingManagementScreenState
                     Expanded(
                       flex: 2,
                       child: ElevatedButton.icon(
-                        onPressed: () => _handleConfirm(booking),
+                        // ✨ UPDATED: Only enabled if payment is completed
+                        onPressed: booking.canBeConfirmedByOwner
+                            ? () => _handleConfirm(booking)
+                            : null,
                         icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Accept'),
+                        label: Text(
+                          booking.isPaymentCompleted
+                              ? 'Accept'
+                              : 'Menunggu Pembayaran',
+                        ),
                       ),
                     ),
                   ],
@@ -488,6 +515,70 @@ class _OwnerBookingManagementScreenState
           fontWeight: FontWeight.bold,
           letterSpacing: 0.5,
         ),
+      ),
+    );
+  }
+
+  /// ✨ NEW: Build payment status info widget
+  Widget _buildPaymentStatusInfo(BookingWithProduct booking) {
+    Color backgroundColor;
+    Color textColor;
+    Color borderColor;
+    IconData icon;
+    String title;
+    String subtitle;
+
+    if (booking.isPaymentCompleted) {
+      backgroundColor = Colors.green[50]!;
+      textColor = Colors.green[900]!;
+      borderColor = Colors.green[300]!;
+      icon = Icons.check_circle;
+      title = '✓ Pembayaran Diterima';
+      subtitle = 'Anda dapat menerima booking ini';
+    } else {
+      backgroundColor = Colors.orange[50]!;
+      textColor = Colors.orange[900]!;
+      borderColor = Colors.orange[300]!;
+      icon = Icons.pending;
+      title = '⏳ ${booking.paymentStatusText}';
+      subtitle = 'Menunggu peminjam menyelesaikan pembayaran';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: textColor, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: textColor.withValues(alpha: 0.8),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -615,6 +706,28 @@ class _OwnerBookingManagementScreenState
   }
 
   Future<void> _handleConfirm(BookingWithProduct booking) async {
+    // ✨ NEW: Double check payment status before showing dialog
+    if (!booking.isPaymentCompleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.warning, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Tidak bisa menerima booking. ${booking.paymentStatusText}.',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -626,8 +739,39 @@ class _OwnerBookingManagementScreenState
             Text('Accept Booking?'),
           ],
         ),
-        content: Text(
-          'Confirm booking from ${booking.userName} for ${booking.product.name}?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Confirm booking from ${booking.userName} for ${booking.product.name}?',
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green[200]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green[700], size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pembayaran sudah diterima',
+                      style: TextStyle(
+                        color: Colors.green[900],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -667,8 +811,20 @@ class _OwnerBookingManagementScreenState
         }
       } catch (e) {
         if (mounted) {
+          // ✨ UPDATED: Better error message display
+          final errorMessage = e.toString().replaceFirst('Exception: ', '');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(errorMessage)),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
           );
         }
       }

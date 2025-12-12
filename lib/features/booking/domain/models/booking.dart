@@ -39,6 +39,29 @@ enum BookingStatus {
   }
 }
 
+/// Payment Status Enum (for Booking)
+enum BookingPaymentStatus {
+  pending('pending', 'Pending', 'Waiting for payment'),
+  processing('processing', 'Processing', 'Payment processing'),
+  paid('paid', 'Paid', 'Payment completed'),
+  failed('failed', 'Failed', 'Payment failed'),
+  expired('expired', 'Expired', 'Payment expired'),
+  cancelled('cancelled', 'Cancelled', 'Payment cancelled');
+
+  final String value;
+  final String label;
+  final String description;
+  const BookingPaymentStatus(this.value, this.label, this.description);
+
+  /// Create BookingPaymentStatus from string
+  static BookingPaymentStatus fromString(String value) {
+    return BookingPaymentStatus.values.firstWhere(
+      (status) => status.value.toLowerCase() == value.toLowerCase(),
+      orElse: () => BookingPaymentStatus.pending,
+    );
+  }
+}
+
 /// Booking Domain Model
 class Booking {
   final String id;
@@ -48,6 +71,7 @@ class Booking {
   final DateTime endDate;
   final double totalPrice;
   final BookingStatus status;
+  final BookingPaymentStatus paymentStatus; // ✨ NEW: Payment status tracking
   final String? paymentProofUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -68,6 +92,7 @@ class Booking {
     required this.endDate,
     required this.totalPrice,
     required this.status,
+    this.paymentStatus = BookingPaymentStatus.pending, // ✨ NEW: Default pending
     this.paymentProofUrl,
     required this.createdAt,
     required this.updatedAt,
@@ -89,6 +114,9 @@ class Booking {
       endDate: DateTime.parse(json['end_date'] as String),
       totalPrice: (json['total_price'] as num).toDouble(),
       status: BookingStatus.fromString(json['status'] as String),
+      paymentStatus: json['payment_status'] != null
+          ? BookingPaymentStatus.fromString(json['payment_status'] as String)
+          : BookingPaymentStatus.pending, // ✨ NEW: Parse payment status
       paymentProofUrl: json['payment_proof_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -206,6 +234,47 @@ class Booking {
     }
   }
 
+  /// ✨ NEW: Check if payment is completed
+  bool get isPaymentCompleted => paymentStatus == BookingPaymentStatus.paid;
+
+  /// ✨ NEW: Check if can be confirmed by owner
+  /// Booking can only be confirmed if payment is completed
+  bool get canBeConfirmedByOwner {
+    return status == BookingStatus.pending && isPaymentCompleted;
+  }
+
+  /// ✨ NEW: Get payment status display text
+  String get paymentStatusText {
+    switch (paymentStatus) {
+      case BookingPaymentStatus.pending:
+        return 'Menunggu Pembayaran';
+      case BookingPaymentStatus.processing:
+        return 'Memproses Pembayaran';
+      case BookingPaymentStatus.paid:
+        return 'Sudah Dibayar';
+      case BookingPaymentStatus.failed:
+        return 'Pembayaran Gagal';
+      case BookingPaymentStatus.expired:
+        return 'Pembayaran Kadaluarsa';
+      case BookingPaymentStatus.cancelled:
+        return 'Pembayaran Dibatalkan';
+    }
+  }
+
+  /// ✨ NEW: Get combined status for user display
+  String get userFriendlyStatus {
+    if (status == BookingStatus.pending) {
+      if (paymentStatus == BookingPaymentStatus.pending) {
+        return 'Menunggu Pembayaran';
+      } else if (paymentStatus == BookingPaymentStatus.paid) {
+        return 'Menunggu Konfirmasi Pemilik';
+      } else {
+        return 'Pembayaran ${paymentStatusText}';
+      }
+    }
+    return statusText;
+  }
+
   /// Copy with method for immutability
   Booking copyWith({
     String? id,
@@ -215,6 +284,7 @@ class Booking {
     DateTime? endDate,
     double? totalPrice,
     BookingStatus? status,
+    BookingPaymentStatus? paymentStatus, // ✨ NEW
     String? paymentProofUrl,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -227,6 +297,7 @@ class Booking {
       endDate: endDate ?? this.endDate,
       totalPrice: totalPrice ?? this.totalPrice,
       status: status ?? this.status,
+      paymentStatus: paymentStatus ?? this.paymentStatus, // ✨ NEW
       paymentProofUrl: paymentProofUrl ?? this.paymentProofUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

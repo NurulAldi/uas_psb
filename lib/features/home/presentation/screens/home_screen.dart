@@ -71,6 +71,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   await context.push('/edit-profile', extra: userProfile);
                   // Profile will auto-refresh via provider invalidation
                 }
+              } else if (value == 'my-bookings') {
+                context.push('/bookings');
+              } else if (value == 'booking-requests') {
+                context.push('/owner/bookings');
               } else if (value == 'admin-dashboard') {
                 context.push('/admin/dashboard');
               }
@@ -106,6 +110,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Icon(Icons.edit, size: 18),
                     SizedBox(width: 8),
                     Text('Edit Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'my-bookings',
+                child: Row(
+                  children: [
+                    Icon(Icons.receipt_long, size: 18),
+                    SizedBox(width: 8),
+                    Text('Pesanan Saya'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'booking-requests',
+                child: Row(
+                  children: [
+                    Icon(Icons.inbox, size: 18),
+                    SizedBox(width: 8),
+                    Text('Booking Requests'),
                   ],
                 ),
               ),
@@ -163,179 +187,210 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Search Bar
+            // Search Bar and Nearby Button
             Padding(
               padding: const EdgeInsets.all(24),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Search camera gear...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchQuery = '';
-                            });
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey[50],
-                ),
-              ),
-            ),
-
-            // Categories Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Categories',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  TextButton.icon(
-                    onPressed: () => context.push('/nearby-products'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      padding: EdgeInsets.zero,
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) {
+                        setState(() {
+                          _searchQuery = value;
+                        });
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Search camera gear...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() {
+                                    _searchQuery = '';
+                                  });
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide:
+                              BorderSide(color: AppColors.primary, width: 2),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[50],
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                      ),
                     ),
-                    icon: const Icon(Icons.near_me, size: 18),
-                    label: Text(
-                      'Nearby',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  // Nearby Button
+                  Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => context.push('/nearby-products'),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.near_me,
+                                  color: Colors.white, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Nearby',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 110,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+
+            // Categories Filter Dropdown
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
                 children: [
-                  _CategoryCard(
-                    icon: Icons.select_all,
-                    label: 'All',
-                    color: Colors.grey,
-                    isSelected: _selectedCategory == null,
-                    onTap: () {
-                      setState(() {
-                        _selectedCategory = null;
-                      });
-                    },
+                  Icon(Icons.category, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Kategori:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  _CategoryCard(
-                    icon: Icons.camera,
-                    label: 'DSLR',
-                    color: AppColors.categoryDSLR,
-                    isSelected: _selectedCategory == ProductCategory.dslr,
-                    onTap: () {
-                      setState(() {
-                        _selectedCategory = ProductCategory.dslr;
-                      });
-                    },
-                  ),
-                  _CategoryCard(
-                    icon: Icons.camera_alt,
-                    label: 'Mirrorless',
-                    color: AppColors.categoryMirrorless,
-                    isSelected: _selectedCategory == ProductCategory.mirrorless,
-                    onTap: () {
-                      setState(() {
-                        _selectedCategory = ProductCategory.mirrorless;
-                      });
-                    },
-                  ),
-                  _CategoryCard(
-                    icon: Icons.flight,
-                    label: 'Drone',
-                    color: AppColors.categoryDrone,
-                    isSelected: _selectedCategory == ProductCategory.drone,
-                    onTap: () {
-                      setState(() {
-                        _selectedCategory = ProductCategory.drone;
-                      });
-                    },
-                  ),
-                  _CategoryCard(
-                    icon: Icons.lens,
-                    label: 'Lens',
-                    color: AppColors.categoryLens,
-                    isSelected: _selectedCategory == ProductCategory.lens,
-                    onTap: () {
-                      setState(() {
-                        _selectedCategory = ProductCategory.lens;
-                      });
-                    },
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<ProductCategory?>(
+                        value: _selectedCategory,
+                        isExpanded: true,
+                        icon: Icon(Icons.arrow_drop_down,
+                            color: AppColors.primary),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedCategory = value;
+                          });
+                        },
+                        items: [
+                          DropdownMenuItem<ProductCategory?>(
+                            value: null,
+                            child: Row(
+                              children: [
+                                Icon(Icons.select_all,
+                                    size: 18, color: Colors.grey),
+                                const SizedBox(width: 8),
+                                const Text('Semua Kategori'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem<ProductCategory?>(
+                            value: ProductCategory.dslr,
+                            child: Row(
+                              children: [
+                                Icon(Icons.camera,
+                                    size: 18, color: AppColors.categoryDSLR),
+                                const SizedBox(width: 8),
+                                const Text('DSLR'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem<ProductCategory?>(
+                            value: ProductCategory.mirrorless,
+                            child: Row(
+                              children: [
+                                Icon(Icons.camera_alt,
+                                    size: 18,
+                                    color: AppColors.categoryMirrorless),
+                                const SizedBox(width: 8),
+                                const Text('Mirrorless'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem<ProductCategory?>(
+                            value: ProductCategory.drone,
+                            child: Row(
+                              children: [
+                                Icon(Icons.flight,
+                                    size: 18, color: AppColors.categoryDrone),
+                                const SizedBox(width: 8),
+                                const Text('Drone'),
+                              ],
+                            ),
+                          ),
+                          DropdownMenuItem<ProductCategory?>(
+                            value: ProductCategory.lens,
+                            child: Row(
+                              children: [
+                                Icon(Icons.lens,
+                                    size: 18, color: AppColors.categoryLens),
+                                const SizedBox(width: 8),
+                                const Text('Lens'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
             const SizedBox(height: 24),
-
-            // Quick Actions Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'Quick Actions',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.receipt_long,
-                      label: 'Pesanan Saya',
-                      color: Colors.blue,
-                      onTap: () => context.push('/bookings'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _QuickActionCard(
-                      icon: Icons.inbox,
-                      label: 'Booking Requests',
-                      color: Colors.orange,
-                      onTap: () => context.push('/owner/bookings'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
 
             // Products Section (with dynamic title based on filters)
             Padding(
@@ -538,71 +593,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _CategoryCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  final bool isSelected;
-
-  const _CategoryCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-    this.isSelected = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: 90,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.1) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? color : AppColors.border,
-              width: isSelected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isSelected ? color : color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 24,
-                  color: isSelected ? Colors.white : color,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isSelected ? color : AppColors.textPrimary,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ProductCard extends StatelessWidget {
   final Product product;
   final VoidCallback onTap;
@@ -760,66 +750,5 @@ class _ProductCard extends StatelessWidget {
       case ProductCategory.lens:
         return AppColors.categoryLens;
     }
-  }
-}
-
-/// Quick Action Card Widget
-class _QuickActionCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _QuickActionCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withValues(alpha: 0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: Colors.white,
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
+import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/auth/presentation/screens/login_screen.dart';
 import 'package:rentlens/features/auth/presentation/screens/register_screen.dart';
 import 'package:rentlens/features/auth/presentation/screens/edit_profile_page.dart';
@@ -63,6 +64,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       );
 
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
+      final isAdminRoute = state.matchedLocation.startsWith('/admin');
       final isLoading = authState.isLoading;
 
       print('🔀 ROUTER: location=${state.matchedLocation}, '
@@ -74,10 +76,32 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // Rule 2: If authenticated, can't go to auth pages
-      if (isAuthenticated && isAuthRoute) {
-        print('🔀 ROUTER: Authenticated user -> redirect to home');
-        return '/';
+      // Rule 2: If authenticated, check admin role and redirect accordingly
+      if (isAuthenticated) {
+        // Check user role
+        final profileAsync = ref.read(currentUserProfileProvider);
+        final isAdmin = profileAsync.maybeWhen(
+          data: (profile) => profile?.role == 'admin',
+          orElse: () => false,
+        );
+
+        // If admin and on auth page, redirect to admin dashboard
+        if (isAdmin && isAuthRoute) {
+          print('🔀 ROUTER: Admin user -> redirect to admin dashboard');
+          return '/admin';
+        }
+
+        // If regular user and on auth page, redirect to home
+        if (!isAdmin && isAuthRoute) {
+          print('🔀 ROUTER: Regular user -> redirect to home');
+          return '/';
+        }
+
+        // If regular user trying to access admin, deny
+        if (!isAdmin && isAdminRoute) {
+          print('🔀 ROUTER: Non-admin user -> access denied to admin');
+          return '/';
+        }
       }
 
       // Rule 3: If not authenticated, must go to auth pages (except auth routes)

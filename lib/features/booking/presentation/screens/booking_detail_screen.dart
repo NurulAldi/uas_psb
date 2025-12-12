@@ -516,6 +516,78 @@ class BookingDetailScreen extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    // If confirmed, show waiting for activation info
+    if (booking.status == BookingStatus.confirmed) {
+      return Card(
+        elevation: 2,
+        color: Colors.blue[50],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.blue[300]!, width: 1.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.hourglass_bottom,
+                      color: Colors.blue[700], size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Menunggu Pengaktifan',
+                          style: TextStyle(
+                            color: Colors.blue[900],
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Pesanan telah dikonfirmasi oleh pemilik. Silakan tunggu pemilik mengaktifkan rental Anda.',
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Pemilik akan mengaktifkan rental saat Anda mengambil/menerima barang',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // If pending, show payment and cancel buttons (only for renter)
     if (booking.status == BookingStatus.pending) {
       final paymentAsync = ref.watch(paymentByBookingProvider(booking.id));

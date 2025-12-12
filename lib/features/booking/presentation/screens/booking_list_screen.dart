@@ -17,11 +17,18 @@ final userBookingsProvider =
   return bookings;
 });
 
-class BookingListScreen extends ConsumerWidget {
+class BookingListScreen extends ConsumerStatefulWidget {
   const BookingListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BookingListScreen> createState() => _BookingListScreenState();
+}
+
+class _BookingListScreenState extends ConsumerState<BookingListScreen> {
+  String? _selectedStatus;
+
+  @override
+  Widget build(BuildContext context) {
     final bookingsAsync = ref.watch(userBookingsProvider);
 
     return Scaffold(
@@ -44,84 +51,178 @@ class BookingListScreen extends ConsumerWidget {
             tooltip: 'Muat Ulang',
           ),
         ],
+        elevation: 0,
       ),
-      body: bookingsAsync.when(
-        data: (bookings) {
-          if (bookings.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.inbox_outlined,
-                      size: 64, color: AppColors.textTertiary),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Belum ada pesanan',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Mulai sewa peralatan kamera',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                        ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => context.go('/'),
-                    icon: const Icon(Icons.search),
-                    label: const Text('Jelajahi Produk'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(userBookingsProvider);
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: bookings.length,
-              itemBuilder: (context, index) {
-                final booking = bookings[index];
-                return _BookingCard(booking: booking);
-              },
+      body: Column(
+        children: [
+          // Filter Dropdown
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 64, color: AppColors.error),
-              const SizedBox(height: 16),
-              Text(
-                'Gagal memuat pesanan',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.error,
+            child: Row(
+              children: [
+                Icon(Icons.filter_list, color: AppColors.primary, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Filter:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                error.toString(),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String?>(
+                        value: _selectedStatus,
+                        isExpanded: true,
+                        icon: Icon(Icons.arrow_drop_down,
+                            color: AppColors.primary),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedStatus = value;
+                          });
+                        },
+                        items: [
+                          DropdownMenuItem(
+                              value: null, child: Text('Semua Status')),
+                          DropdownMenuItem(
+                              value: 'pending', child: Text('Pending')),
+                          DropdownMenuItem(
+                              value: 'confirmed', child: Text('Confirmed')),
+                          DropdownMenuItem(
+                              value: 'active', child: Text('Active')),
+                          DropdownMenuItem(
+                              value: 'completed', child: Text('Completed')),
+                          DropdownMenuItem(
+                              value: 'cancelled', child: Text('Cancelled')),
+                        ],
+                      ),
                     ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.refresh(userBookingsProvider),
-                child: const Text('Retry'),
-              ),
-            ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          // Booking List
+          Expanded(
+            child: bookingsAsync.when(
+              data: (bookings) {
+                // Filter bookings
+                final filteredBookings = _selectedStatus == null
+                    ? bookings
+                    : bookings
+                        .where((b) => b.status.value == _selectedStatus)
+                        .toList();
+
+                if (filteredBookings.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(userBookingsProvider);
+                  },
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filteredBookings.length,
+                    itemBuilder: (context, index) {
+                      return _BookingCard(booking: filteredBookings[index]);
+                    },
+                  ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 64, color: AppColors.error),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Gagal memuat pesanan',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppColors.error,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      error.toString(),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => ref.refresh(userBookingsProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    String message = _selectedStatus == null
+        ? 'Belum ada pesanan'
+        : 'Tidak ada pesanan dengan status ${_selectedStatus!.toUpperCase()}';
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, size: 64, color: AppColors.textTertiary),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          if (_selectedStatus == null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Mulai sewa peralatan kamera',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => context.go('/'),
+              icon: const Icon(Icons.search),
+              label: const Text('Jelajahi Produk'),
+            ),
+          ],
+        ],
       ),
     );
   }
