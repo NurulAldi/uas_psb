@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
+import 'package:rentlens/features/admin/data/admin_repository.dart';
+import 'package:rentlens/features/admin/providers/current_admin_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -28,9 +30,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // Try admin login first
+    final adminRepo = AdminRepository();
+    final admin = await adminRepo.authenticateAdmin(email, password);
+
+    if (admin != null) {
+      // Admin login successful
+      ref.read(currentAdminProvider.notifier).state = admin;
+      if (mounted) {
+        context.go('/admin');
+      }
+      return;
+    }
+
+    // Not admin, try regular user login
     await ref.read(authControllerProvider.notifier).signIn(
-          _emailController.text,
-          _passwordController.text,
+          email,
+          password,
         );
   }
 
@@ -43,7 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             Icon(Icons.block, color: AppColors.error, size: 28),
             const SizedBox(width: 12),
-            const Text('Account Suspended'),
+            const Text('Akun Diblokir'),
           ],
         ),
         content: Column(
@@ -51,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Your account has been suspended by an administrator.',
+              'Akun Anda telah diblokir oleh administrator.',
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 16),
@@ -68,7 +87,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'Please contact an administrator for more information.',
+                      'Silakan hubungi administrator untuk informasi lebih lanjut.',
                       style: TextStyle(fontSize: 14),
                     ),
                   ),
@@ -134,7 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               // Title
               Text(
-                'Welcome back',
+                'Selamat Datang Kembali',
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
@@ -142,7 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Log in to continue your camera rental journey',
+                'Masuk untuk melanjutkan sewa kamera Anda',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -155,17 +174,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  hintText: 'Enter your email',
+                  hintText: 'Masukkan email Anda',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Email is required';
+                    return 'Email wajib diisi';
                   }
                   if (!value!.contains('@')) {
-                    return 'Please enter a valid email';
+                    return 'Masukkan email yang valid';
                   }
                   return null;
                 },
@@ -177,8 +196,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'Enter your password',
+                  labelText: 'Kata Sandi',
+                  hintText: 'Masukkan kata sandi Anda',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -195,10 +214,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Password is required';
+                    return 'Kata sandi wajib diisi';
                   }
                   if (value!.length < 6) {
-                    return 'Password must be at least 6 characters';
+                    return 'Kata sandi minimal 6 karakter';
                   }
                   return null;
                 },
@@ -230,7 +249,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         )
                       : const Text(
-                          'Log in',
+                          'Masuk',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -248,7 +267,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'or',
+                      'atau',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -265,7 +284,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Don\'t have an account? ',
+                    'Belum punya akun? ',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -274,7 +293,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onTap:
                         isLoading ? null : () => context.go('/auth/register'),
                     child: Text(
-                      'Sign up',
+                      'Daftar',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,

@@ -1,5 +1,6 @@
 import 'package:rentlens/core/config/supabase_config.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
+import 'package:rentlens/features/products/domain/models/product_with_distance.dart';
 
 /// Product Repository
 /// Handles all data operations related to products
@@ -248,6 +249,7 @@ class ProductRepository {
     required double pricePerDay,
     String? description,
     String? imageUrl,
+    List<String>? imageUrls,
   }) async {
     try {
       final userId = SupabaseConfig.currentUserId;
@@ -267,6 +269,7 @@ class ProductRepository {
         'description': description,
         'price_per_day': pricePerDay,
         'image_url': imageUrl,
+        'image_urls': imageUrls ?? [],
         'is_available': true,
         'owner_id': userId,
       };
@@ -296,6 +299,7 @@ class ProductRepository {
     double? pricePerDay,
     String? description,
     String? imageUrl,
+    List<String>? imageUrls,
     bool? isAvailable,
   }) async {
     try {
@@ -307,6 +311,7 @@ class ProductRepository {
       if (pricePerDay != null) updates['price_per_day'] = pricePerDay;
       if (description != null) updates['description'] = description;
       if (imageUrl != null) updates['image_url'] = imageUrl;
+      if (imageUrls != null) updates['image_urls'] = imageUrls;
       if (isAvailable != null) updates['is_available'] = isAvailable;
 
       if (updates.isEmpty) {
@@ -342,6 +347,77 @@ class ProductRepository {
       print('❌ PRODUCT REPOSITORY: Error deleting product = $e');
       print('Stack trace: $stackTrace');
       rethrow;
+    }
+  }
+
+  /// Get products within 20km radius of user location
+  /// Uses Supabase RPC function 'get_nearby_products'
+  Future<List<ProductWithDistance>> getNearbyProducts({
+    required double userLat,
+    required double userLon,
+    double radiusKm = 20.0,
+    String? category,
+  }) async {
+    try {
+      print('📍 PRODUCT REPOSITORY: Fetching nearby products...');
+      print('   User location: ($userLat, $userLon)');
+      print('   Radius: ${radiusKm}km');
+      if (category != null) print('   Category: $category');
+
+      // Get current user ID to exclude own products
+      final currentUserId = _supabase.auth.currentUser?.id;
+
+      final params = {
+        'user_lat': userLat,
+        'user_lon': userLon,
+        'radius_km': radiusKm,
+        if (category != null) 'product_category': category,
+        if (currentUserId != null) 'current_user_id': currentUserId,
+      };
+
+      final response = await _supabase.rpc(
+        'get_nearby_products',
+        params: params,
+      );
+
+      print('📍 PRODUCT REPOSITORY: Found ${response.length} nearby products');
+
+      final products = (response as List)
+          .map((json) =>
+              ProductWithDistance.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      // Sort by distance (should already be sorted by SQL)
+      products.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+
+      return products;
+    } catch (e, stackTrace) {
+      print('❌ PRODUCT REPOSITORY: Error fetching nearby products = $e');
+      print('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Get distance to a specific product from user location
+  Future<double?> getProductDistance({
+    required String productId,
+    required double userLat,
+    required double userLon,
+  }) async {
+    try {
+      final distance = await _supabase.rpc(
+        'get_product_distance',
+        params: {
+          'product_id': productId,
+          'user_lat': userLat,
+          'user_lon': userLon,
+        },
+      );
+
+      return distance as double?;
+    } catch (e) {
+      print('❌ PRODUCT REPOSITORY: Error getting product distance = $e');
+      return null;
     }
   }
 }

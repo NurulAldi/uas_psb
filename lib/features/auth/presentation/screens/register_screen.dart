@@ -66,9 +66,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   color: AppColors.info,
                   size: 64,
                 ),
-                title: const Text('Verify Your Email'),
+                title: const Text('Verifikasi Email Anda'),
                 content: Text(
-                  'Please check your email at ${_emailController.text} to verify your account before logging in.',
+                  'Silakan cek email Anda di ${_emailController.text} untuk memverifikasi akun sebelum masuk.',
                 ),
                 actions: [
                   TextButton(
@@ -76,7 +76,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       Navigator.pop(context);
                       context.go('/auth/login');
                     },
-                    child: const Text('Go to Login'),
+                    child: const Text('Ke Halaman Login'),
                   ),
                 ],
               ),
@@ -117,7 +117,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
               // Title
               Text(
-                'Create Account',
+                'Buat Akun',
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
@@ -125,7 +125,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Sign up to start renting cameras',
+                'Daftar untuk mulai menyewa kamera',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -137,14 +137,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               TextFormField(
                 controller: _fullNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  hintText: 'Enter your full name',
+                  labelText: 'Nama Lengkap',
+                  hintText: 'Masukkan nama lengkap Anda',
                   prefixIcon: Icon(Icons.person_outline),
                 ),
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Full name is required';
+                    return 'Nama lengkap wajib diisi';
                   }
                   return null;
                 },
@@ -157,17 +157,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  hintText: 'Enter your email',
+                  hintText: 'Masukkan email Anda',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
                 keyboardType: TextInputType.emailAddress,
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Email is required';
+                    return 'Email wajib diisi';
                   }
                   if (!value!.contains('@')) {
-                    return 'Please enter a valid email';
+                    return 'Masukkan email yang valid';
                   }
                   return null;
                 },
@@ -179,8 +179,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(
-                  labelText: 'Phone Number (optional)',
-                  hintText: 'Enter your phone number',
+                  labelText: 'Nomor Telepon (opsional)',
+                  hintText: 'Masukkan nomor telepon Anda',
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
                 keyboardType: TextInputType.phone,
@@ -193,8 +193,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'Create a password',
+                  labelText: 'Kata Sandi',
+                  hintText: 'Buat kata sandi',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -211,10 +211,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Password is required';
+                    return 'Kata sandi wajib diisi';
                   }
                   if (value!.length < 6) {
-                    return 'Password must be at least 6 characters';
+                    return 'Kata sandi minimal 6 karakter';
                   }
                   return null;
                 },
@@ -226,8 +226,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               TextFormField(
                 controller: _confirmPasswordController,
                 decoration: InputDecoration(
-                  labelText: 'Confirm Password',
-                  hintText: 'Re-enter your password',
+                  labelText: 'Konfirmasi Kata Sandi',
+                  hintText: 'Masukkan ulang kata sandi',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -245,10 +245,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Please confirm your password';
+                    return 'Konfirmasi kata sandi wajib diisi';
                   }
                   if (value != _passwordController.text) {
-                    return 'Passwords do not match';
+                    return 'Kata sandi tidak cocok';
                   }
                   return null;
                 },
@@ -280,7 +280,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                         )
                       : const Text(
-                          'Sign up',
+                          'Daftar',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -298,7 +298,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'or',
+                      'atau',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -315,7 +315,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Already have an account? ',
+                    'Sudah punya akun? ',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -323,7 +323,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   InkWell(
                     onTap: isLoading ? null : () => context.go('/auth/login'),
                     child: Text(
-                      'Log in',
+                      'Masuk',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,

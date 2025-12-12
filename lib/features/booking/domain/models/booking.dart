@@ -1,13 +1,34 @@
-/// Booking Status Enum
-enum BookingStatus {
-  pending('pending'),
-  confirmed('confirmed'),
-  active('active'),
-  completed('completed'),
-  cancelled('cancelled');
+/// Delivery Method Enum
+enum DeliveryMethod {
+  pickup('pickup', 'Dijemput Sendiri', 'Penyewa mengambil dari pemilik'),
+  delivery('delivery', 'Diantar', 'Pemilik mengantarkan ke penyewa');
 
   final String value;
-  const BookingStatus(this.value);
+  final String label;
+  final String description;
+  const DeliveryMethod(this.value, this.label, this.description);
+
+  /// Create DeliveryMethod from string
+  static DeliveryMethod fromString(String value) {
+    return DeliveryMethod.values.firstWhere(
+      (method) => method.value.toLowerCase() == value.toLowerCase(),
+      orElse: () => DeliveryMethod.pickup,
+    );
+  }
+}
+
+/// Booking Status Enum
+enum BookingStatus {
+  pending('pending', 'Pending', 'Waiting for owner confirmation'),
+  confirmed('confirmed', 'Confirmed', 'Owner accepted, ready to start'),
+  active('active', 'Active', 'Currently renting'),
+  completed('completed', 'Completed', 'Rental finished'),
+  cancelled('cancelled', 'Cancelled', 'Booking cancelled');
+
+  final String value;
+  final String label;
+  final String description;
+  const BookingStatus(this.value, this.label, this.description);
 
   /// Create BookingStatus from string
   static BookingStatus fromString(String value) {
@@ -31,6 +52,14 @@ class Booking {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Delivery fields
+  final DeliveryMethod deliveryMethod;
+  final double deliveryFee;
+  final double? distanceKm;
+  final String? ownerId;
+  final String? renterAddress;
+  final String? notes;
+
   const Booking({
     required this.id,
     required this.userId,
@@ -42,6 +71,12 @@ class Booking {
     this.paymentProofUrl,
     required this.createdAt,
     required this.updatedAt,
+    this.deliveryMethod = DeliveryMethod.pickup,
+    this.deliveryFee = 0,
+    this.distanceKm,
+    this.ownerId,
+    this.renterAddress,
+    this.notes,
   });
 
   /// Create Booking from JSON (Supabase response)
@@ -57,6 +92,18 @@ class Booking {
       paymentProofUrl: json['payment_proof_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      deliveryMethod: json['delivery_method'] != null
+          ? DeliveryMethod.fromString(json['delivery_method'] as String)
+          : DeliveryMethod.pickup,
+      deliveryFee: json['delivery_fee'] != null
+          ? (json['delivery_fee'] as num).toDouble()
+          : 0,
+      distanceKm: json['distance_km'] != null
+          ? (json['distance_km'] as num).toDouble()
+          : null,
+      ownerId: json['owner_id'] as String?,
+      renterAddress: json['renter_address'] as String?,
+      notes: json['notes'] as String?,
     );
   }
 
@@ -86,8 +133,25 @@ class Booking {
       'total_price': totalPrice,
       'status': status.value,
       'payment_proof_url': paymentProofUrl,
+      'delivery_method': deliveryMethod.value,
+      'delivery_fee': deliveryFee,
+      'distance_km': distanceKm,
+      if (renterAddress != null) 'renter_address': renterAddress,
+      if (notes != null) 'notes': notes,
     };
   }
+
+  /// Calculate delivery fee based on distance
+  /// Rp 5,000 per 2km (rounded up)
+  static double calculateDeliveryFee(double distanceKm) {
+    if (distanceKm <= 0) return 0;
+    const baseFee = 5000.0; // Rp 5,000
+    const distanceUnit = 2.0; // per 2km
+    return (distanceKm / distanceUnit).ceil() * baseFee;
+  }
+
+  /// Get product subtotal (total - delivery fee)
+  double get productSubtotal => totalPrice - deliveryFee;
 
   /// Calculate number of days
   int get numberOfDays {
@@ -97,6 +161,14 @@ class Booking {
   /// Format total price as IDR
   String get formattedTotalPrice {
     return 'Rp ${totalPrice.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]}.',
+        )}';
+  }
+
+  /// Format delivery fee as IDR
+  String get formattedDeliveryFee {
+    return 'Rp ${deliveryFee.toStringAsFixed(0).replaceAllMapped(
           RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
           (Match m) => '${m[1]}.',
         )}';

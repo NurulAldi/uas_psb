@@ -63,9 +63,15 @@ class BookingRepository {
     try {
       print('📦 BOOKING REPOSITORY: Fetching user bookings...');
 
-      // Use guest user ID for bookings without authentication
-      final userId = SupabaseConfig.currentUserId ??
-          '00000000-0000-0000-0000-000000000000';
+      // Get current user ID - return empty if not logged in
+      final userId = SupabaseConfig.currentUserId;
+
+      if (userId == null) {
+        print('❌ No user logged in - returning empty list');
+        return [];
+      }
+
+      print('   User ID: $userId');
 
       final response = await _supabase
           .from('bookings')
@@ -234,11 +240,17 @@ class BookingRepository {
   /// Get bookings with product details (joined query)
   Future<List<BookingWithProduct>> getUserBookingsWithProducts() async {
     try {
-      print('📦 BOOKING REPOSITORY: Fetching user bookings with products...');
+      print('📦 ========== FETCHING USER BOOKINGS ==========');
 
-      // Use guest user ID for bookings without authentication
-      final userId = SupabaseConfig.currentUserId ??
-          '00000000-0000-0000-0000-000000000000';
+      // Get current user ID
+      final userId = SupabaseConfig.currentUserId;
+
+      print('   Current User ID: $userId');
+
+      if (userId == null) {
+        print('❌ No user logged in - returning empty list');
+        return [];
+      }
 
       final response = await _supabase
           .from('bookings')
@@ -246,8 +258,43 @@ class BookingRepository {
           .eq('user_id', userId)
           .order('created_at', ascending: false);
 
+      print('   Found ${response.length} bookings for user: $userId');
+
+      if (response.isEmpty) {
+        print('   No bookings found');
+        return [];
+      }
+
+      final bookingsWithProducts = (response as List).map((json) {
+        final booking = json as Map<String, dynamic>;
+        print(
+            '   - Booking ID: ${booking['id']}, Product: ${booking['products']?['name'] ?? 'Unknown'}');
+        return BookingWithProduct.fromJson(booking);
+      }).toList();
+
+      print('✅ ========== USER BOOKINGS LOADED ==========');
+      return bookingsWithProducts;
+    } catch (e, stackTrace) {
+      print('❌ BOOKING REPOSITORY: Error fetching bookings with products = $e');
+      print('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Get all bookings for products owned by the specified owner
+  Future<List<BookingWithProduct>> getOwnerBookings(String ownerId) async {
+    try {
+      print('📦 BOOKING REPOSITORY: Fetching bookings for owner: $ownerId');
+
+      // Use bookings_with_details view for complete info
+      final response = await _supabase
+          .from('bookings_with_details')
+          .select()
+          .eq('owner_id', ownerId)
+          .order('created_at', ascending: false);
+
       print(
-          '📦 BOOKING REPOSITORY: Received ${response.length} bookings with products');
+          '📦 BOOKING REPOSITORY: Received ${response.length} bookings for owner');
 
       final bookingsWithProducts = (response as List)
           .map((json) =>
@@ -256,9 +303,38 @@ class BookingRepository {
 
       return bookingsWithProducts;
     } catch (e, stackTrace) {
-      print('❌ BOOKING REPOSITORY: Error fetching bookings with products = $e');
+      print('❌ BOOKING REPOSITORY: Error fetching owner bookings = $e');
       print('Stack trace: $stackTrace');
       rethrow;
+    }
+  }
+
+  /// Get booking by ID with product details (for both owner and renter)
+  Future<BookingWithProduct?> getBookingWithProductById(
+      String bookingId) async {
+    try {
+      print(
+          '📦 BOOKING REPOSITORY: Fetching booking with product by ID: $bookingId');
+
+      // Use bookings_with_details view for complete info
+      final response = await _supabase
+          .from('bookings_with_details')
+          .select()
+          .eq('id', bookingId)
+          .maybeSingle();
+
+      if (response == null) {
+        print('📦 BOOKING REPOSITORY: Booking not found');
+        return null;
+      }
+
+      print('📦 BOOKING REPOSITORY: Booking found');
+      return BookingWithProduct.fromJson(response);
+    } catch (e, stackTrace) {
+      print(
+          '❌ BOOKING REPOSITORY: Error fetching booking with product by ID = $e');
+      print('Stack trace: $stackTrace');
+      return null;
     }
   }
 

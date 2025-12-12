@@ -45,6 +45,10 @@ class ProfileUpdateController extends StateNotifier<AsyncValue<void>> {
     String? fullName,
     String? phoneNumber,
     String? avatarUrl,
+    double? latitude,
+    double? longitude,
+    String? address,
+    String? city,
   }) async {
     state = const AsyncValue.loading();
 
@@ -55,6 +59,10 @@ class ProfileUpdateController extends StateNotifier<AsyncValue<void>> {
         fullName: fullName,
         phoneNumber: phoneNumber,
         avatarUrl: avatarUrl,
+        latitude: latitude,
+        longitude: longitude,
+        address: address,
+        city: city,
       );
 
       state = const AsyncValue.data(null);

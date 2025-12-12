@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/config/supabase_config.dart';
 import 'package:rentlens/features/products/providers/product_provider.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
-import 'package:rentlens/features/booking/providers/booking_provider.dart';
-import 'package:rentlens/features/booking/domain/models/booking.dart';
 import 'package:rentlens/features/admin/presentation/widgets/report_user_dialog.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
+import 'package:rentlens/features/products/presentation/widgets/zoomable_image_viewer.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   final String productId;
@@ -77,7 +75,7 @@ class ProductDetailScreen extends ConsumerWidget {
                 Icon(Icons.error_outline, size: 64, color: AppColors.error),
                 const SizedBox(height: 16),
                 Text(
-                  'Failed to load product',
+                  'Gagal memuat produk',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: AppColors.error,
                       ),
@@ -120,32 +118,24 @@ class ProductDetailScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref, Product product) {
     return CustomScrollView(
       slivers: [
-        // App Bar with Image
+        // App Bar with Image Gallery
         SliverAppBar(
           expandedHeight: 300,
           pinned: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                context.go('/');
+              }
+            },
+          ),
           flexibleSpace: FlexibleSpaceBar(
-            background: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: product.imageUrl!,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.backgroundGrey,
-                      child: Center(
-                        child:
-                            CircularProgressIndicator(color: AppColors.primary),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.backgroundGrey,
-                      child: Center(
-                        child: Icon(
-                          Icons.camera_alt,
-                          size: 100,
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
-                    ),
+            background: product.imageUrls.isNotEmpty
+                ? _ImageGallery(
+                    imageUrls: product.imageUrls,
                   )
                 : Container(
                     color: AppColors.backgroundGrey,
@@ -179,26 +169,6 @@ class ProductDetailScreen extends ConsumerWidget {
                 ),
                 onPressed: () => _showReportDialog(context, ref, product),
               ),
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.shadow,
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.favorite_border, size: 20),
-              ),
-              onPressed: () {
-                // TODO: Implement favorite functionality
-              },
-            ),
             const SizedBox(width: 8),
           ],
         ),
@@ -275,7 +245,7 @@ class ProductDetailScreen extends ConsumerWidget {
                         ],
                       ),
                       Text(
-                        'per day',
+                        'per hari',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -299,8 +269,8 @@ class ProductDetailScreen extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text(
                       product.isAvailable
-                          ? 'Available for rent'
-                          : 'Currently unavailable',
+                          ? 'Tersedia untuk disewa'
+                          : 'Sedang tidak tersedia',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             color: product.isAvailable
                                 ? AppColors.success
@@ -317,7 +287,7 @@ class ProductDetailScreen extends ConsumerWidget {
 
                 // Description Section
                 Text(
-                  'Description',
+                  'Deskripsi',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -325,12 +295,20 @@ class ProductDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Text(
                   product.description ??
-                      'No description available for this product.',
+                      'Tidak ada deskripsi untuk produk ini.',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.textSecondary,
                         height: 1.5,
                       ),
                 ),
+
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 24),
+
+                // Owner Section
+                if (product.ownerId != null && !_isOwner(product))
+                  _OwnerInfoSection(ownerId: product.ownerId!),
 
                 const SizedBox(height: 32),
               ],
@@ -383,6 +361,129 @@ class ProductDetailScreen extends ConsumerWidget {
   }
 }
 
+/// Owner Info Section Widget
+class _OwnerInfoSection extends ConsumerWidget {
+  final String ownerId;
+
+  const _OwnerInfoSection({required this.ownerId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ownerAsync = ref.watch(profileByIdProvider(ownerId));
+
+    return ownerAsync.when(
+      data: (owner) {
+        if (owner == null) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Owner',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () {
+                context.push('/profile/$ownerId');
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundGrey,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    // Avatar
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: AppColors.primary,
+                      child: owner.avatarUrl != null
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: owner.avatarUrl!,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(
+                                  Icons.person,
+                                  size: 30,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person,
+                              size: 30,
+                              color: Colors.white,
+                            ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Owner info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            owner.fullName ?? 'Owner',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          if (owner.city != null)
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 16,
+                                  color: AppColors.textSecondary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  owner.city!,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Arrow icon
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+}
+
 /// Bottom action bar for booking
 class _BottomActionBar extends ConsumerStatefulWidget {
   final Product product;
@@ -394,11 +495,6 @@ class _BottomActionBar extends ConsumerStatefulWidget {
 }
 
 class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
-  DateTimeRange? _selectedDateRange;
-  int? _numberOfDays;
-  double? _totalPrice;
-  bool _isProcessing = false;
-
   /// Check if current user is the owner of this product
   bool get _isOwner {
     final currentUserId = SupabaseConfig.currentUserId;
@@ -430,160 +526,26 @@ class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Date Range Selection
-            if (_selectedDateRange != null) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundGrey,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Start Date',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('dd MMM yyyy')
-                                    .format(_selectedDateRange!.start),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.arrow_forward,
-                            color: AppColors.textSecondary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'End Date',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('dd MMM yyyy')
-                                    .format(_selectedDateRange!.end),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyLarge
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Divider(),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '$_numberOfDays ${_numberOfDays! > 1 ? 'days' : 'day'}',
-                          style:
-                              Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                        ),
-                        Text(
-                          'Total: ${_formatPrice(_totalPrice!)}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
             // Action Buttons
             Row(
               children: [
-                if (_selectedDateRange != null) ...[
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _isProcessing ? null : _selectDateRange,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: const Text('Change Dates'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
                 Expanded(
-                  flex: _selectedDateRange != null ? 1 : 1,
                   child: ElevatedButton(
-                    onPressed: _isProcessing
-                        ? null
-                        : widget.product.isAvailable
-                            ? _selectedDateRange != null
-                                ? _handleRentNow
-                                : _selectDateRange
-                            : null,
+                    onPressed:
+                        widget.product.isAvailable ? _handleRentNow : null,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       disabledBackgroundColor: AppColors.textTertiary,
                     ),
-                    child: _isProcessing
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : Text(
-                            widget.product.isAvailable
-                                ? _selectedDateRange != null
-                                    ? 'Rent Now'
-                                    : 'Select Dates'
-                                : 'Unavailable',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    child: Text(
+                      widget.product.isAvailable
+                          ? 'Sewa Sekarang'
+                          : 'Tidak Tersedia',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -594,224 +556,12 @@ class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
     );
   }
 
-  /// Select date range
-  Future<void> _selectDateRange() async {
-    final now = DateTime.now();
-    final firstDate = DateTime(now.year, now.month, now.day);
-    final lastDate = DateTime(now.year + 1, now.month, now.day);
-
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: firstDate,
-      lastDate: lastDate,
-      initialDateRange: _selectedDateRange,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        _selectedDateRange = picked;
-        _numberOfDays = picked.duration.inDays;
-        _totalPrice = _numberOfDays! * widget.product.pricePerDay;
-      });
-    }
-  }
-
-  /// Handle rent now button
+  /// Handle book now button
   Future<void> _handleRentNow() async {
-    if (_selectedDateRange == null || _totalPrice == null) return;
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    try {
-      // Create booking request
-      final request = CreateBookingRequest(
-        productId: widget.product.id,
-        startDate: _selectedDateRange!.start,
-        endDate: _selectedDateRange!.end,
-        totalPrice: _totalPrice!,
-      );
-
-      // Validate request
-      final error = request.getValidationError();
-      if (error != null) {
-        _showErrorDialog(error);
-        setState(() {
-          _isProcessing = false;
-        });
-        return;
-      }
-
-      // Create booking
-      final booking =
-          await ref.read(bookingNotifierProvider.notifier).createBooking(
-                productId: request.productId,
-                startDate: request.startDate,
-                endDate: request.endDate,
-                totalPrice: request.totalPrice,
-              );
-
-      if (booking != null && mounted) {
-        // Show success dialog
-        await _showSuccessDialog(booking);
-
-        // Navigate to home
-        if (mounted) {
-          context.go('/');
-        }
-      } else {
-        _showErrorDialog('Failed to create booking. Please try again.');
-      }
-    } catch (e) {
-      _showErrorDialog(e.toString());
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    }
-  }
-
-  /// Show success dialog
-  Future<void> _showSuccessDialog(Booking booking) async {
-    return showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.success.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child:
-                  Icon(Icons.check_circle, color: AppColors.success, size: 32),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Booking Successful!',
-                style: TextStyle(fontSize: 20),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Your booking has been created successfully.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.backgroundGrey,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow('Product', widget.product.name),
-                  const SizedBox(height: 8),
-                  _buildInfoRow(
-                    'Period',
-                    '${DateFormat('dd MMM').format(booking.startDate)} - ${DateFormat('dd MMM yyyy').format(booking.endDate)}',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Duration', '${booking.numberOfDays} days'),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Total', booking.formattedTotalPrice),
-                  const SizedBox(height: 8),
-                  _buildInfoRow('Status', booking.statusText),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+    // Navigate to booking form screen
+    context.push(
+      '/bookings/new?productId=${widget.product.id}',
     );
-  }
-
-  /// Show error dialog
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.error_outline, color: AppColors.error, size: 32),
-            const SizedBox(width: 12),
-            const Text('Booking Failed'),
-          ],
-        ),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build info row
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 13,
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Format price
-  String _formatPrice(double price) {
-    return 'Rp ${price.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]}.',
-        )}';
   }
 
   /// Build action bar for product owner
@@ -876,6 +626,206 @@ class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Image Gallery Widget with PageView and Thumbnails
+class _ImageGallery extends StatefulWidget {
+  final List<String> imageUrls;
+
+  const _ImageGallery({required this.imageUrls});
+
+  @override
+  State<_ImageGallery> createState() => _ImageGalleryState();
+}
+
+class _ImageGalleryState extends State<_ImageGallery> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  bool _showThumbnails = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _openFullScreenViewer(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ZoomableImageViewer(
+          imageUrls: widget.imageUrls,
+          initialIndex: _currentIndex,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Main Image PageView with Gesture Zoom
+        PageView.builder(
+          controller: _pageController,
+          itemCount: widget.imageUrls.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentIndex = index;
+              // Show thumbnails briefly when changing page
+              _showThumbnails = true;
+            });
+            // Hide thumbnails after 2 seconds
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted) {
+                setState(() {
+                  _showThumbnails = false;
+                });
+              }
+            });
+          },
+          itemBuilder: (context, index) {
+            return InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              onInteractionStart: (details) {
+                // Show thumbnails when user starts interacting
+                setState(() {
+                  _showThumbnails = true;
+                });
+              },
+              onInteractionEnd: (details) {
+                // Hide thumbnails after interaction ends
+                Future.delayed(const Duration(seconds: 2), () {
+                  if (mounted) {
+                    setState(() {
+                      _showThumbnails = false;
+                    });
+                  }
+                });
+              },
+              child: GestureDetector(
+                onDoubleTap: () => _openFullScreenViewer(context),
+                child: Center(
+                  child: CachedNetworkImage(
+                    imageUrl: widget.imageUrls[index],
+                    fit: BoxFit.contain, // Full scale, no crop
+                    placeholder: (context, url) => Container(
+                      color: AppColors.backgroundGrey,
+                      child: Center(
+                        child:
+                            CircularProgressIndicator(color: AppColors.primary),
+                      ),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      color: AppColors.backgroundGrey,
+                      child: Center(
+                        child: Icon(
+                          Icons.camera_alt,
+                          size: 100,
+                          color: AppColors.textTertiary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+
+        // Image counter
+        Positioned(
+          top: 16,
+          right: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${_currentIndex + 1}/${widget.imageUrls.length}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+
+        // Thumbnail navigation (bottom) - only show when interacting
+        if (widget.imageUrls.length > 1)
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            bottom: _showThumbnails ? 16 : -80,
+            left: 16,
+            right: 16,
+            child: SizedBox(
+              height: 60,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: widget.imageUrls.length,
+                itemBuilder: (context, index) {
+                  final isSelected = index == _currentIndex;
+                  return GestureDetector(
+                    onTap: () {
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                    child: Container(
+                      width: 50,
+                      height: 50,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isSelected ? Colors.white : Colors.white54,
+                          width: isSelected ? 3 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: CachedNetworkImage(
+                          imageUrl: widget.imageUrls[index],
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: Colors.grey[800],
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: Colors.grey[800],
+                            child: const Icon(
+                              Icons.error,
+                              color: Colors.white54,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

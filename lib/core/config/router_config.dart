@@ -14,8 +14,11 @@ import 'package:rentlens/features/products/presentation/screens/add_product_page
 import 'package:rentlens/features/booking/presentation/screens/booking_form_screen.dart';
 import 'package:rentlens/features/booking/presentation/screens/booking_list_screen.dart';
 import 'package:rentlens/features/booking/presentation/screens/booking_detail_screen.dart';
-import 'package:rentlens/features/booking/presentation/screens/booking_history_screen.dart';
-import 'package:rentlens/features/admin/presentation/pages/admin_dashboard_page.dart';
+import 'package:rentlens/features/booking/presentation/screens/owner_booking_management_screen.dart';
+import 'package:rentlens/features/payment/presentation/screens/payment_screen.dart';
+import 'package:rentlens/features/admin/presentation/screens/admin_dashboard_screen.dart';
+import 'package:rentlens/features/products/presentation/screens/nearby_products_screen.dart';
+import 'package:rentlens/features/auth/presentation/screens/public_profile_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 /// Helper class to refresh GoRouter when auth state changes
@@ -108,11 +111,21 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Profile Routes (requires authentication)
       GoRoute(
-        path: '/profile/edit',
+        path: '/edit-profile',
         name: 'edit-profile',
         builder: (context, state) {
           final profile = state.extra as dynamic;
           return EditProfilePage(profile: profile);
+        },
+      ),
+
+      // Public Profile Route (View other users' profiles)
+      GoRoute(
+        path: '/profile/:userId',
+        name: 'public-profile',
+        builder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          return PublicProfileScreen(userId: userId);
         },
       ),
 
@@ -158,9 +171,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Admin Routes
       GoRoute(
-        path: '/admin/dashboard',
-        name: 'admin-dashboard',
-        builder: (context, state) => const AdminDashboardPage(),
+        path: '/admin',
+        name: 'admin',
+        builder: (context, state) => const AdminDashboardScreen(),
       ),
 
       // Booking Routes
@@ -168,11 +181,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/bookings',
         name: 'bookings',
         builder: (context, state) => const BookingListScreen(),
-      ),
-      GoRoute(
-        path: '/booking-history',
-        name: 'booking-history',
-        builder: (context, state) => const BookingHistoryScreen(),
       ),
       GoRoute(
         path: '/bookings/new',
@@ -189,6 +197,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           final bookingId = state.pathParameters['id']!;
           return BookingDetailScreen(bookingId: bookingId);
         },
+      ),
+
+      // Owner Booking Management Route
+      GoRoute(
+        path: '/owner/bookings',
+        name: 'owner-bookings',
+        builder: (context, state) => const OwnerBookingManagementScreen(),
+      ),
+
+      // Payment Routes
+      GoRoute(
+        path: '/payment/:bookingId',
+        name: 'payment',
+        builder: (context, state) {
+          final bookingId = state.pathParameters['bookingId']!;
+          return PaymentScreen(bookingId: bookingId);
+        },
+      ),
+
+      // Nearby Products Route (Location-based search)
+      GoRoute(
+        path: '/nearby-products',
+        name: 'nearby-products',
+        builder: (context, state) => const NearbyProductsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

@@ -12,8 +12,9 @@ final myProductsProvider = FutureProvider<List<Product>>((ref) async {
 /// State notifier for managing product creation/updates
 class ProductManagementController extends StateNotifier<AsyncValue<void>> {
   final ProductRepository _repository;
+  final Ref _ref;
 
-  ProductManagementController(this._repository)
+  ProductManagementController(this._repository, this._ref)
       : super(const AsyncValue.data(null));
 
   /// Create a new product
@@ -23,6 +24,7 @@ class ProductManagementController extends StateNotifier<AsyncValue<void>> {
     required double pricePerDay,
     String? description,
     String? imageUrl,
+    List<String>? imageUrls,
   }) async {
     state = const AsyncValue.loading();
 
@@ -35,10 +37,18 @@ class ProductManagementController extends StateNotifier<AsyncValue<void>> {
         pricePerDay: pricePerDay,
         description: description,
         imageUrl: imageUrl,
+        imageUrls: imageUrls,
       );
 
       state = const AsyncValue.data(null);
       print('✅ PRODUCT MANAGEMENT: Product created successfully');
+
+      // Invalidate all product caches to refresh lists
+      _ref.invalidate(myProductsProvider);
+      _ref.invalidate(allProductsProvider);
+      _ref.invalidate(availableProductsProvider);
+      _ref.invalidate(featuredProductsProvider);
+
       return product;
     } catch (e, stackTrace) {
       print('❌ PRODUCT MANAGEMENT: Error creating product = $e');
@@ -55,6 +65,7 @@ class ProductManagementController extends StateNotifier<AsyncValue<void>> {
     double? pricePerDay,
     String? description,
     String? imageUrl,
+    List<String>? imageUrls,
     bool? isAvailable,
   }) async {
     state = const AsyncValue.loading();
@@ -69,11 +80,20 @@ class ProductManagementController extends StateNotifier<AsyncValue<void>> {
         pricePerDay: pricePerDay,
         description: description,
         imageUrl: imageUrl,
+        imageUrls: imageUrls,
         isAvailable: isAvailable,
       );
 
       state = const AsyncValue.data(null);
       print('✅ PRODUCT MANAGEMENT: Product updated successfully');
+
+      // Invalidate all product caches to refresh lists
+      _ref.invalidate(myProductsProvider);
+      _ref.invalidate(allProductsProvider);
+      _ref.invalidate(availableProductsProvider);
+      _ref.invalidate(featuredProductsProvider);
+      _ref.invalidate(productByIdProvider(productId));
+
       return product;
     } catch (e, stackTrace) {
       print('❌ PRODUCT MANAGEMENT: Error updating product = $e');
@@ -93,6 +113,14 @@ class ProductManagementController extends StateNotifier<AsyncValue<void>> {
 
       state = const AsyncValue.data(null);
       print('✅ PRODUCT MANAGEMENT: Product deleted successfully');
+
+      // Invalidate all product caches to refresh lists
+      _ref.invalidate(myProductsProvider);
+      _ref.invalidate(allProductsProvider);
+      _ref.invalidate(availableProductsProvider);
+      _ref.invalidate(featuredProductsProvider);
+      _ref.invalidate(productByIdProvider(productId));
+
       return true;
     } catch (e, stackTrace) {
       print('❌ PRODUCT MANAGEMENT: Error deleting product = $e');
@@ -106,5 +134,5 @@ class ProductManagementController extends StateNotifier<AsyncValue<void>> {
 final productManagementControllerProvider =
     StateNotifierProvider<ProductManagementController, AsyncValue<void>>((ref) {
   final repository = ref.watch(productRepositoryProvider);
-  return ProductManagementController(repository);
+  return ProductManagementController(repository, ref);
 });

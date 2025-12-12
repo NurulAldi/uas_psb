@@ -8,13 +8,30 @@
 -- =====================================================
 
 /*
-1. Open Supabase Dashboard
-2. Go to Storage section (left sidebar)
-3. Click "Create Bucket"
-4. Bucket name: avatars
-5. Set to PUBLIC (toggle the switch)
-6. Click Create
-7. The policies below will be auto-applied for public buckets
+STEP 1: CREATE BUCKET
+1. Open Supabase Dashboard (https://app.supabase.com)
+2. Select your project
+3. Go to Storage section (left sidebar)
+4. Click "New bucket" button
+5. Bucket name: avatars (exactly as shown)
+6. Set to PUBLIC (toggle the "Public bucket" switch ON)
+7. Click "Create bucket"
+
+STEP 2: VERIFY BUCKET
+1. Click on the "avatars" bucket
+2. You should see an empty folder view
+3. The bucket URL should be: https://[your-project].supabase.co/storage/v1/object/public/avatars
+
+STEP 3: SET POLICIES (Run SQL below)
+1. Go to SQL Editor (left sidebar)
+2. Copy and paste the policies below
+3. Click "Run"
+
+TROUBLESHOOTING:
+- If getting 404 errors: Bucket doesn't exist, recreate it
+- If getting 400 errors: Check if bucket is set to PUBLIC
+- If getting 403 errors: Check RLS policies below are applied
+- To test: Upload a test image manually in the Storage UI
 */
 
 -- =====================================================

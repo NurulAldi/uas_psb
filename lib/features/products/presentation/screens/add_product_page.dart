@@ -27,10 +27,15 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
   final _imagePicker = ImagePicker();
 
   ProductCategory _selectedCategory = ProductCategory.dslr;
-  File? _selectedImageFile;
+  List<File> _selectedImageFiles = [];
+  List<String> _existingImageUrls = []; // Track existing images in edit mode
   bool _isUploading = false;
 
   bool get _isEditMode => widget.product != null;
+
+  // Total images count (existing + new)
+  int get _totalImagesCount =>
+      _existingImageUrls.length + _selectedImageFiles.length;
 
   @override
   void initState() {
@@ -49,6 +54,8 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
       (c) => c.value == product.category,
       orElse: () => ProductCategory.dslr,
     );
+    // Initialize existing images
+    _existingImageUrls = List.from(product.imageUrls);
   }
 
   @override
@@ -59,27 +66,52 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImages() async {
     try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
+      final List<XFile> images = await _imagePicker.pickMultiImage(
         maxWidth: 1920,
         maxHeight: 1080,
-        imageQuality: 50, // Kompres otomatis 50% untuk hemat storage
+        imageQuality: 85, // Higher quality for better display
       );
 
-      if (image != null) {
+      if (images.isNotEmpty) {
+        // Limit to 5 images (including existing)
+        final availableSlots = 5 - _totalImagesCount;
+        final imagesToAdd = images.take(availableSlots).toList();
+
         setState(() {
-          _selectedImageFile = File(image.path);
+          _selectedImageFiles.addAll(
+            imagesToAdd.map((xfile) => File(xfile.path)),
+          );
         });
+
+        if (images.length > availableSlots) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Maksimal 5 gambar. Beberapa gambar dilewati.'),
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: $e')),
+          SnackBar(content: Text('Gagal memilih gambar: $e')),
         );
       }
     }
+  }
+
+  void _removeImage(int index, {bool isExisting = false}) {
+    setState(() {
+      if (isExisting) {
+        _existingImageUrls.removeAt(index);
+      } else {
+        _selectedImageFiles.removeAt(index);
+      }
+    });
   }
 
   Future<void> _saveProduct() async {
@@ -89,30 +121,33 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     setState(() => _isUploading = true);
 
     try {
-      String? imageUrl;
+      List<String> imageUrls = [];
 
       // Handle image upload
-      if (_selectedImageFile != null) {
-        final userId = SupabaseConfig.currentUserId;
-        if (userId == null) throw Exception('User not authenticated');
+      final userId = SupabaseConfig.currentUserId;
+      if (userId == null) throw Exception('Pengguna tidak terautentikasi');
 
-        if (_isEditMode && widget.product!.imageUrl != null) {
-          // Replace existing image
-          imageUrl = await _imageUploadService.replaceProductImage(
-            newImageFile: _selectedImageFile!,
-            userId: userId,
-            oldImageUrl: widget.product!.imageUrl!,
-          );
-        } else {
-          // Upload new image
-          imageUrl = await _imageUploadService.uploadProductImage(
-            imageFile: _selectedImageFile!,
-            userId: userId,
-          );
+      // Start with existing images (if in edit mode)
+      if (_isEditMode) {
+        imageUrls = List.from(_existingImageUrls);
+
+        // Delete removed images
+        final removedImages = widget.product!.imageUrls
+            .where((url) => !_existingImageUrls.contains(url))
+            .toList();
+        if (removedImages.isNotEmpty) {
+          await _imageUploadService.deleteMultipleProductImages(removedImages);
         }
-      } else if (_isEditMode) {
-        // Keep existing image URL
-        imageUrl = widget.product!.imageUrl;
+      }
+
+      // Upload new images
+      if (_selectedImageFiles.isNotEmpty) {
+        final newImageUrls =
+            await _imageUploadService.uploadMultipleProductImages(
+          imageFiles: _selectedImageFiles,
+          userId: userId,
+        );
+        imageUrls.addAll(newImageUrls);
       }
 
       final controller = ref.read(productManagementControllerProvider.notifier);
@@ -128,7 +163,8 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
-          imageUrl: imageUrl,
+          imageUrl: imageUrls.isNotEmpty ? imageUrls.first : null,
+          imageUrls: imageUrls,
         );
       } else {
         // Create new product
@@ -139,14 +175,17 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
-          imageUrl: imageUrl,
+          imageUrl: imageUrls.isNotEmpty ? imageUrls.first : null,
+          imageUrls: imageUrls,
         );
       }
 
       if (result != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isEditMode ? 'Product updated!' : 'Product added!'),
+            content: Text(_isEditMode
+                ? 'Produk berhasil diperbarui!'
+                : 'Produk berhasil ditambahkan!'),
           ),
         );
         context.pop(true);
@@ -154,7 +193,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Kesalahan: $e')),
         );
       }
     } finally {
@@ -168,65 +207,134 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Product Image',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Gambar Produk',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            Text(
+              '$_totalImagesCount/5',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _isUploading ? null : _pickImage,
-          child: Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[400]!),
-            ),
-            child: _selectedImageFile != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _selectedImageFile!,
-                      fit: BoxFit.cover,
-                    ),
-                  )
-                : _isEditMode && widget.product!.imageUrl != null
-                    ? ClipRRect(
+
+        // Image Grid - Show existing + new images
+        if (_totalImagesCount > 0)
+          Container(
+            height: 120,
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _totalImagesCount,
+              itemBuilder: (context, index) {
+                // Show existing images first, then new images
+                final isExisting = index < _existingImageUrls.length;
+                final actualIndex =
+                    isExisting ? index : index - _existingImageUrls.length;
+
+                return Stack(
+                  children: [
+                    Container(
+                      width: 120,
+                      height: 120,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: widget.product!.imageUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                              const Center(child: CircularProgressIndicator()),
-                          errorWidget: (context, url, error) =>
-                              const Icon(Icons.error),
-                        ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_photo_alternate,
-                              size: 48, color: Colors.grey[600]),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap to select image',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ],
+                        border: Border.all(color: Colors.grey[400]!),
                       ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: isExisting
+                            ? CachedNetworkImage(
+                                imageUrl: _existingImageUrls[actualIndex],
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(Icons.error),
+                              )
+                            : Image.file(
+                                _selectedImageFiles[actualIndex],
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                    ),
+                    if (!_isUploading)
+                      Positioned(
+                        top: 4,
+                        right: 12,
+                        child: GestureDetector(
+                          onTap: () =>
+                              _removeImage(actualIndex, isExisting: isExisting),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
-        ),
-        if (_selectedImageFile != null ||
-            (_isEditMode && widget.product!.imageUrl != null))
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: TextButton.icon(
-              onPressed: _isUploading
-                  ? null
-                  : () => setState(() => _selectedImageFile = null),
-              icon: const Icon(Icons.close),
-              label: Text(_isEditMode ? 'Change Image' : 'Remove Image'),
+
+        // Add Images Button
+        if (_totalImagesCount < 5)
+          GestureDetector(
+            onTap: _isUploading ? null : _pickImages,
+            child: Container(
+              height: 120,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey[400]!,
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_photo_alternate,
+                    size: 48,
+                    color: Colors.grey[600],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _totalImagesCount == 0
+                        ? 'Ketuk untuk memilih gambar'
+                        : 'Tambah gambar lagi',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '(${5 - _totalImagesCount} slot tersisa)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
       ],
@@ -240,7 +348,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditMode ? 'Edit Product' : 'Add Product'),
+        title: Text(_isEditMode ? 'Edit Produk' : 'Tambah Produk'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -254,19 +362,19 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Product Name',
+                  labelText: 'Nama Produk',
                   prefixIcon: Icon(Icons.camera_alt),
                   border: OutlineInputBorder(),
                 ),
                 enabled: !isLoading,
                 validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Required' : null,
+                    v == null || v.trim().isEmpty ? 'Wajib diisi' : null,
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<ProductCategory>(
                 value: _selectedCategory,
                 decoration: const InputDecoration(
-                  labelText: 'Category',
+                  labelText: 'Kategori',
                   prefixIcon: Icon(Icons.category),
                   border: OutlineInputBorder(),
                 ),
@@ -282,15 +390,15 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               TextFormField(
                 controller: _priceController,
                 decoration: const InputDecoration(
-                  labelText: 'Price per Day (Rp)',
+                  labelText: 'Harga per Hari (Rp)',
                   prefixIcon: Icon(Icons.attach_money),
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
                 enabled: !isLoading,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Required';
-                  if (double.tryParse(v) == null) return 'Invalid number';
+                  if (v == null || v.trim().isEmpty) return 'Wajib diisi';
+                  if (double.tryParse(v) == null) return 'Angka tidak valid';
                   return null;
                 },
               ),
@@ -298,7 +406,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Description (Optional)',
+                  labelText: 'Deskripsi (Opsional)',
                   prefixIcon: Icon(Icons.description),
                   border: OutlineInputBorder(),
                 ),
@@ -319,7 +427,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(_isEditMode ? 'Update Product' : 'Add Product'),
+                      : Text(_isEditMode ? 'Perbarui Produk' : 'Tambah Produk'),
                 ),
               ),
             ],

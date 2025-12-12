@@ -4,12 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rentlens/core/config/supabase_config.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/auth/domain/models/user_profile.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/auth/data/services/avatar_upload_service.dart';
+import 'package:rentlens/features/auth/presentation/widgets/user_avatar.dart';
+import 'package:rentlens/core/services/location_service.dart';
 
 /// **Edit Profile Page - Complete Implementation**
 ///
@@ -50,10 +51,18 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   final _phoneController = TextEditingController();
   final _avatarUploadService = AvatarUploadService();
   final _imagePicker = ImagePicker();
+  final _locationService = LocationService();
 
   File? _selectedImageFile;
   bool _isUploading = false;
   bool _hasChanges = false;
+  bool _isGettingLocation = false;
+
+  // Location data
+  double? _latitude;
+  double? _longitude;
+  String? _address;
+  String? _city;
 
   @override
   void initState() {
@@ -65,6 +74,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   void _prefillForm() {
     _fullNameController.text = widget.profile.fullName ?? '';
     _phoneController.text = widget.profile.phoneNumber ?? '';
+    _latitude = widget.profile.latitude;
+    _longitude = widget.profile.longitude;
+    _address = widget.profile.address;
+    _city = widget.profile.city;
   }
 
   void _setupChangeListeners() {
@@ -76,7 +89,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     final hasChanges =
         _fullNameController.text != (widget.profile.fullName ?? '') ||
             _phoneController.text != (widget.profile.phoneNumber ?? '') ||
-            _selectedImageFile != null;
+            _selectedImageFile != null ||
+            _latitude != widget.profile.latitude ||
+            _longitude != widget.profile.longitude ||
+            _address != widget.profile.address ||
+            _city != widget.profile.city;
 
     if (hasChanges != _hasChanges) {
       setState(() => _hasChanges = hasChanges);
@@ -221,6 +238,65 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     });
   }
 
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isGettingLocation = true);
+
+    try {
+      final position = await _locationService.getCurrentLocation();
+
+      if (position == null) {
+        throw Exception('Unable to get location');
+      }
+
+      // Get address and city from coordinates
+      final address = await _locationService.getAddressFromCoordinates(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+
+      final city = await _locationService.getCityFromCoordinates(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+        _address = address;
+        _city = city;
+        _hasChanges = true;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Location updated: $city')),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isGettingLocation = false);
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -257,6 +333,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             ? null
             : _phoneController.text.trim(),
         avatarUrl: newAvatarUrl,
+        latitude: _latitude,
+        longitude: _longitude,
+        address: _address,
+        city: _city,
       );
 
       if (success && mounted) {
@@ -273,7 +353,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        context.pop(true);
+        // Stay on the page - don't pop back to home
+        // The profile will auto-refresh via provider invalidation
+        setState(() {
+          _hasChanges = false;
+          _selectedImageFile = null;
+        });
       } else if (mounted) {
         throw Exception('Failed to update profile');
       }
@@ -313,39 +398,33 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primary.withValues(alpha: 0.6),
-                    ],
-                  ),
-                ),
-                child: CircleAvatar(
-                  radius: 64,
-                  backgroundColor: Colors.white,
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundColor: AppColors.backgroundGrey,
-                    backgroundImage: _selectedImageFile != null
-                        ? FileImage(_selectedImageFile!) as ImageProvider
-                        : (widget.profile.avatarUrl != null &&
-                                widget.profile.avatarUrl!.isNotEmpty)
-                            ? CachedNetworkImageProvider(
-                                widget.profile.avatarUrl!)
-                            : null,
-                    child: (_selectedImageFile == null &&
-                            (widget.profile.avatarUrl == null ||
-                                widget.profile.avatarUrl!.isEmpty))
-                        ? Icon(Icons.person,
-                            size: 60, color: AppColors.textTertiary)
-                        : null,
-                  ),
-                ),
-              ),
+              // Use LargeUserAvatar but override with file preview if selected
+              _selectedImageFile != null
+                  ? Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.primary,
+                            AppColors.primary.withValues(alpha: 0.6),
+                          ],
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 64,
+                        backgroundColor: Colors.white,
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundColor: AppColors.backgroundGrey,
+                          backgroundImage: FileImage(_selectedImageFile!),
+                        ),
+                      ),
+                    )
+                  : LargeUserAvatar(
+                      avatarUrl: widget.profile.avatarUrl,
+                      showEditButton: false,
+                    ),
               Positioned(
                 bottom: 0,
                 right: 0,
@@ -580,6 +659,167 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 32),
+
+                      // Location Section
+                      Row(
+                        children: [
+                          Icon(Icons.location_on_outlined,
+                              color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Location',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Set your location to discover products near you',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Current Location Display
+                      if (_latitude != null && _longitude != null)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.green[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.check_circle,
+                                      color: Colors.green[700], size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Location Set',
+                                    style: TextStyle(
+                                      color: Colors.green[800],
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.place,
+                                      color: Colors.green[600], size: 16),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      _city ?? 'Unknown City',
+                                      style: TextStyle(
+                                        color: Colors.green[800],
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_address != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  _address!,
+                                  style: TextStyle(
+                                    color: Colors.green[700],
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              const SizedBox(height: 4),
+                              Text(
+                                'Lat: ${_latitude!.toStringAsFixed(6)}, Lon: ${_longitude!.toStringAsFixed(6)}',
+                                style: TextStyle(
+                                  color: Colors.green[600],
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.location_off,
+                                  color: Colors.orange[700], size: 20),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'No location set yet. Tap button below to set your location.',
+                                  style: TextStyle(
+                                    color: Colors.orange[800],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 16),
+
+                      // Get Location Button
+                      OutlinedButton.icon(
+                        onPressed: (_isGettingLocation || isLoading)
+                            ? null
+                            : _getCurrentLocation,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: AppColors.primary),
+                        ),
+                        icon: _isGettingLocation
+                            ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      AppColors.primary),
+                                ),
+                              )
+                            : Icon(Icons.my_location, size: 20),
+                        label: Text(
+                          _isGettingLocation
+                              ? 'Getting Location...'
+                              : _latitude != null
+                                  ? 'Update Location'
+                                  : 'Get Current Location',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
                       const SizedBox(height: 24),
                       if (!isLoading)
                         Container(
@@ -596,7 +836,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
-                                  '• Email cannot be changed\n• Photo is auto-compressed\n• Changes saved immediately',
+                                  '• Location is used for nearby products\n• Only city is visible to others\n• You can update anytime',
                                   style: TextStyle(
                                       color: Colors.blue[800],
                                       fontSize: 12,

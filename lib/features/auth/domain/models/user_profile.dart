@@ -10,6 +10,13 @@ class UserProfile {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // Location fields for 20km radius rental feature
+  final double? latitude;
+  final double? longitude;
+  final String? address;
+  final String? city;
+  final DateTime? locationUpdatedAt;
+
   const UserProfile({
     required this.id,
     required this.email,
@@ -20,7 +27,31 @@ class UserProfile {
     this.isBanned = false,
     required this.createdAt,
     required this.updatedAt,
+    this.latitude,
+    this.longitude,
+    this.address,
+    this.city,
+    this.locationUpdatedAt,
   });
+
+  /// Check if user has set their location
+  bool get hasLocation => latitude != null && longitude != null;
+
+  /// Check if user has a valid avatar URL
+  bool get hasValidAvatar {
+    if (avatarUrl == null || avatarUrl!.isEmpty) return false;
+
+    // Basic URL validation
+    try {
+      final uri = Uri.parse(avatarUrl!);
+      // Check if it's a valid URL with http/https scheme
+      return uri.hasScheme &&
+          (uri.scheme == 'http' || uri.scheme == 'https') &&
+          uri.host.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -33,6 +64,13 @@ class UserProfile {
       isBanned: json['is_banned'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      latitude: json['latitude'] as double?,
+      longitude: json['longitude'] as double?,
+      address: json['address'] as String?,
+      city: json['city'] as String?,
+      locationUpdatedAt: json['location_updated_at'] != null
+          ? DateTime.parse(json['location_updated_at'] as String)
+          : null,
     );
   }
 
@@ -47,6 +85,11 @@ class UserProfile {
       'is_banned': isBanned,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      'latitude': latitude,
+      'longitude': longitude,
+      'address': address,
+      'city': city,
+      'location_updated_at': locationUpdatedAt?.toIso8601String(),
     };
   }
 
@@ -60,6 +103,11 @@ class UserProfile {
     bool? isBanned,
     DateTime? createdAt,
     DateTime? updatedAt,
+    double? latitude,
+    double? longitude,
+    String? address,
+    String? city,
+    DateTime? locationUpdatedAt,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -71,6 +119,11 @@ class UserProfile {
       isBanned: isBanned ?? this.isBanned,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      address: address ?? this.address,
+      city: city ?? this.city,
+      locationUpdatedAt: locationUpdatedAt ?? this.locationUpdatedAt,
     );
   }
 }

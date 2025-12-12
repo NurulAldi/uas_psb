@@ -88,4 +88,39 @@ class ImageUploadService {
 
     return newImageUrl;
   }
+
+  /// Upload multiple product images to Supabase Storage
+  /// Returns list of public URLs of the uploaded images
+  Future<List<String>> uploadMultipleProductImages({
+    required List<File> imageFiles,
+    required String userId,
+  }) async {
+    final List<String> uploadedUrls = [];
+
+    for (final imageFile in imageFiles) {
+      try {
+        final url = await uploadProductImage(
+          imageFile: imageFile,
+          userId: userId,
+        );
+        uploadedUrls.add(url);
+      } catch (e) {
+        print('Warning: Failed to upload image ${imageFile.path}: $e');
+        // Continue uploading other images
+      }
+    }
+
+    if (uploadedUrls.isEmpty && imageFiles.isNotEmpty) {
+      throw Exception('Failed to upload any images');
+    }
+
+    return uploadedUrls;
+  }
+
+  /// Delete multiple product images from Supabase Storage
+  Future<void> deleteMultipleProductImages(List<String> imageUrls) async {
+    for (final imageUrl in imageUrls) {
+      await deleteProductImage(imageUrl);
+    }
+  }
 }

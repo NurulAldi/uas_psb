@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/products/providers/my_products_provider.dart';
 
@@ -105,11 +106,38 @@ class MyListingsPage extends ConsumerWidget {
                     child: Column(
                       children: [
                         ListTile(
-                          leading: Container(
-                            width: 60,
-                            height: 60,
-                            color: AppColors.backgroundGrey,
-                            child: const Icon(Icons.camera_alt),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: product.imageUrl != null &&
+                                    product.imageUrl!.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: product.imageUrl!,
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => Container(
+                                      width: 60,
+                                      height: 60,
+                                      color: AppColors.backgroundGrey,
+                                      child: const Center(
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) =>
+                                        Container(
+                                      width: 60,
+                                      height: 60,
+                                      color: AppColors.backgroundGrey,
+                                      child: const Icon(Icons.camera_alt),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: AppColors.backgroundGrey,
+                                    child: const Icon(Icons.camera_alt),
+                                  ),
                           ),
                           title: Text(product.name),
                           subtitle: Text(
@@ -215,16 +243,6 @@ class MyListingsPage extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await context.push('/products/add');
-          if (result == true && context.mounted) {
-            ref.invalidate(myProductsProvider);
-          }
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Add Product'),
       ),
     );
   }

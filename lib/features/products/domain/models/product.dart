@@ -24,7 +24,8 @@ class Product {
   final ProductCategory category;
   final String? description;
   final double pricePerDay;
-  final String? imageUrl;
+  final String? imageUrl; // Deprecated: kept for backward compatibility
+  final List<String> imageUrls; // New: support multiple images
   final bool isAvailable;
   final String?
       ownerId; // P2P: Owner of this product (nullable until migration)
@@ -38,6 +39,7 @@ class Product {
     this.description,
     required this.pricePerDay,
     this.imageUrl,
+    this.imageUrls = const [],
     required this.isAvailable,
     this.ownerId,
     required this.createdAt,
@@ -46,13 +48,23 @@ class Product {
 
   /// Create Product from JSON (Supabase response)
   factory Product.fromJson(Map<String, dynamic> json) {
+    // Parse image URLs (support both old single image and new multiple images)
+    List<String> imageUrls = [];
+    if (json['image_urls'] != null) {
+      imageUrls = List<String>.from(json['image_urls'] as List);
+    } else if (json['image_url'] != null &&
+        (json['image_url'] as String).isNotEmpty) {
+      imageUrls = [json['image_url'] as String];
+    }
+
     return Product(
       id: json['id'] as String,
       name: json['name'] as String,
       category: ProductCategory.fromString(json['category'] as String),
       description: json['description'] as String?,
       pricePerDay: (json['price_per_day'] as num).toDouble(),
-      imageUrl: json['image_url'] as String?,
+      imageUrl: imageUrls.isNotEmpty ? imageUrls.first : null,
+      imageUrls: imageUrls,
       isAvailable: json['is_available'] as bool? ?? true,
       ownerId: json['owner_id'] as String?, // Nullable until migration
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -68,7 +80,8 @@ class Product {
       'category': category.value,
       'description': description,
       'price_per_day': pricePerDay,
-      'image_url': imageUrl,
+      'image_url': imageUrls.isNotEmpty ? imageUrls.first : null,
+      'image_urls': imageUrls,
       'is_available': isAvailable,
       'owner_id': ownerId,
       'created_at': createdAt.toIso8601String(),
@@ -84,14 +97,20 @@ class Product {
         )}';
   }
 
-  /// Get short price (e.g., 150k)
+  /// Get short price in Indonesian format (e.g., Rp 70.000, Rp 3,2 juta)
   String get shortPrice {
     if (pricePerDay >= 1000000) {
-      return '${(pricePerDay / 1000000).toStringAsFixed(1)}M';
+      // Format: Rp 3,2 juta
+      final millions = pricePerDay / 1000000;
+      return 'Rp ${millions.toStringAsFixed(millions % 1 == 0 ? 0 : 1).replaceAll('.', ',')} juta';
     } else if (pricePerDay >= 1000) {
-      return '${(pricePerDay / 1000).toStringAsFixed(0)}k';
+      // Format: Rp 70.000
+      return 'Rp ${pricePerDay.toStringAsFixed(0).replaceAllMapped(
+            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+            (Match m) => '${m[1]}.',
+          )}';
     }
-    return pricePerDay.toStringAsFixed(0);
+    return 'Rp ${pricePerDay.toStringAsFixed(0)}';
   }
 
   /// Copy with method for immutability
@@ -102,6 +121,7 @@ class Product {
     String? description,
     double? pricePerDay,
     String? imageUrl,
+    List<String>? imageUrls,
     bool? isAvailable,
     String? ownerId,
     DateTime? createdAt,
@@ -114,6 +134,7 @@ class Product {
       description: description ?? this.description,
       pricePerDay: pricePerDay ?? this.pricePerDay,
       imageUrl: imageUrl ?? this.imageUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
       isAvailable: isAvailable ?? this.isAvailable,
       ownerId: ownerId ?? this.ownerId,
       createdAt: createdAt ?? this.createdAt,

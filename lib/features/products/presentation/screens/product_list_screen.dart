@@ -247,7 +247,7 @@ class _ProductCard extends StatelessWidget {
 
                   // Price
                   Text(
-                    'Rp ${product.shortPrice}/day',
+                    '${product.shortPrice} / hari',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600,
