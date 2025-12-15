@@ -350,29 +350,33 @@ class ProductRepository {
     }
   }
 
-  /// Get products within 20km radius of user location
-  /// Uses Supabase RPC function 'get_nearby_products'
+  /// Get nearby products (PRIMARY METHOD - Location-first discovery)
+  /// Uses enhanced Supabase RPC function with search and filter support
   Future<List<ProductWithDistance>> getNearbyProducts({
-    required double userLat,
-    required double userLon,
+    required double latitude,
+    required double longitude,
     double radiusKm = 20.0,
-    String? category,
+    String? searchText,
+    ProductCategory? category,
   }) async {
     try {
       print('📍 PRODUCT REPOSITORY: Fetching nearby products...');
-      print('   User location: ($userLat, $userLon)');
+      print('   User location: ($latitude, $longitude)');
       print('   Radius: ${radiusKm}km');
+      if (searchText != null) print('   Search: "$searchText"');
       if (category != null) print('   Category: $category');
 
       // Get current user ID to exclude own products
       final currentUserId = _supabase.auth.currentUser?.id;
 
       final params = {
-        'user_lat': userLat,
-        'user_lon': userLon,
+        'user_lat': latitude,
+        'user_lon': longitude,
         'radius_km': radiusKm,
-        if (category != null) 'product_category': category,
-        if (currentUserId != null) 'current_user_id': currentUserId,
+        if (searchText != null && searchText.isNotEmpty)
+          'search_text': searchText,
+        if (category != null) 'filter_category': category.value,
+        if (currentUserId != null) 'exclude_user_id': currentUserId,
       };
 
       final response = await _supabase.rpc(
@@ -387,12 +391,43 @@ class ProductRepository {
               ProductWithDistance.fromJson(json as Map<String, dynamic>))
           .toList();
 
-      // Sort by distance (should already be sorted by SQL)
+      // Products are already sorted by distance in SQL, but ensure it
       products.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
 
       return products;
     } catch (e, stackTrace) {
       print('❌ PRODUCT REPOSITORY: Error fetching nearby products = $e');
+      print('Stack trace: $stackTrace');
+      rethrow;
+    }
+  }
+
+  /// Get products without location (FALLBACK ONLY - used when location unavailable)
+  /// Shows warning that this is degraded experience
+  @Deprecated('Use getNearbyProducts() instead - location-first is the default')
+  Future<List<Product>> getProductsWithoutLocation() async {
+    try {
+      print(
+          '⚠️ PRODUCT REPOSITORY: Fetching products WITHOUT location filtering');
+      print('   This is a degraded experience - location should be enabled');
+
+      final response = await _supabase
+          .from('products')
+          .select()
+          .eq('is_available', true)
+          .order('created_at', ascending: false)
+          .limit(50); // Limit for performance
+
+      print(
+          '📦 PRODUCT REPOSITORY: Received ${response.length} products (no location filter)');
+
+      final products = (response as List)
+          .map((json) => Product.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      return products;
+    } catch (e, stackTrace) {
+      print('❌ PRODUCT REPOSITORY: Error fetching products = $e');
       print('Stack trace: $stackTrace');
       rethrow;
     }

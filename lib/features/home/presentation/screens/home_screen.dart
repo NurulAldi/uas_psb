@@ -3,12 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
-import 'package:rentlens/features/products/providers/product_provider.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
+import 'package:rentlens/features/products/domain/models/product_with_distance.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/auth/presentation/widgets/user_avatar.dart';
+import 'package:rentlens/features/products/providers/location_aware_product_provider.dart';
+import 'package:rentlens/features/products/presentation/widgets/location_permission_banner.dart';
+import 'package:rentlens/features/products/presentation/widgets/location_status_header.dart';
+import 'package:rentlens/features/products/presentation/widgets/no_nearby_products_widget.dart';
+import 'package:rentlens/features/products/presentation/widgets/product_distance_badge.dart';
 
+/// Home Screen - Location-First Product Discovery
+/// Default view shows nearby products within configurable radius
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -18,8 +25,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
-  ProductCategory? _selectedCategory;
 
   @override
   void dispose() {
@@ -35,12 +40,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       orElse: () => null,
     );
 
-    // Watch user profile for full name
+    // Watch user profile
     final profileAsync = ref.watch(currentUserProfileProvider);
     final userProfile = profileAsync.maybeWhen(
       data: (profile) => profile,
       orElse: () => null,
     );
+
+    // Watch location-aware product state
+    final productState = ref.watch(locationAwareProductControllerProvider);
+    final controller =
+        ref.read(locationAwareProductControllerProvider.notifier);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -69,7 +79,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               } else if (value == 'edit-profile') {
                 if (userProfile != null) {
                   await context.push('/edit-profile', extra: userProfile);
-                  // Profile will auto-refresh via provider invalidation
                 }
               } else if (value == 'my-bookings') {
                 context.push('/bookings');
@@ -163,383 +172,215 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Search Bar and Nearby Button
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Cari peralatan kamera...',
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear),
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {
-                                    _searchQuery = '';
-                                  });
-                                },
-                              )
-                            : null,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.border),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.border),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              BorderSide(color: AppColors.primary, width: 2),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[50],
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Nearby Button
-                  Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
+      body: RefreshIndicator(
+        onRefresh: () => controller.refresh(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Location permission check
+              if (productState.permissionDenied)
+                LocationPermissionBanner(
+                  onRequestPermission: () =>
+                      controller.requestLocationPermission(),
+                  isPermanentlyDenied: productState.permissionStatus ==
+                      LocationPermissionStatus.deniedPermanently,
+                ),
+
+              // Location status header (when location available)
+              if (productState.hasLocation)
+                LocationStatusHeader(
+                  cityName: userProfile?.city,
+                  radiusKm: productState.radiusKm,
+                  productCount: productState.productCount,
+                  onAdjustRadius: () => _showRadiusDialog(
+                      context, controller, productState.radiusKm),
+                  onRefresh: () => controller.refresh(),
+                ),
+
+              // Search Bar
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) => controller.updateSearch(value),
+                  decoration: InputDecoration(
+                    hintText: 'Cari kamera terdekat...',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: productState.searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              controller.updateSearch('');
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                      borderSide: BorderSide(color: AppColors.border),
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => context.push('/nearby-products'),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.near_me,
-                                  color: Colors.white, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Terdekat',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.border),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[50],
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                   ),
-                ],
+                ),
               ),
-            ),
 
-            // Categories Filter Dropdown
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.category, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Kategori:',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<ProductCategory?>(
-                        value: _selectedCategory,
-                        isExpanded: true,
-                        icon: Icon(Icons.arrow_drop_down,
-                            color: AppColors.primary),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textPrimary,
-                        ),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedCategory = value;
-                          });
-                        },
-                        items: [
-                          DropdownMenuItem<ProductCategory?>(
-                            value: null,
-                            child: Row(
-                              children: [
-                                Icon(Icons.select_all,
-                                    size: 18, color: Colors.grey),
-                                const SizedBox(width: 8),
-                                const Text('Semua Kategori'),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem<ProductCategory?>(
-                            value: ProductCategory.dslr,
-                            child: Row(
-                              children: [
-                                Icon(Icons.camera,
-                                    size: 18, color: AppColors.categoryDSLR),
-                                const SizedBox(width: 8),
-                                const Text('DSLR'),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem<ProductCategory?>(
-                            value: ProductCategory.mirrorless,
-                            child: Row(
-                              children: [
-                                Icon(Icons.camera_alt,
-                                    size: 18,
-                                    color: AppColors.categoryMirrorless),
-                                const SizedBox(width: 8),
-                                const Text('Mirrorless'),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem<ProductCategory?>(
-                            value: ProductCategory.drone,
-                            child: Row(
-                              children: [
-                                Icon(Icons.flight,
-                                    size: 18, color: AppColors.categoryDrone),
-                                const SizedBox(width: 8),
-                                const Text('Drone'),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem<ProductCategory?>(
-                            value: ProductCategory.lens,
-                            child: Row(
-                              children: [
-                                Icon(Icons.lens,
-                                    size: 18, color: AppColors.categoryLens),
-                                const SizedBox(width: 8),
-                                const Text('Lens'),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+              // Category Filter
+              _buildCategoryFilter(controller, productState),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-            // Products Section (with dynamic title based on filters)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _searchQuery.isNotEmpty
-                        ? 'Hasil Pencarian'
-                        : _selectedCategory != null
-                            ? 'Produk ${_selectedCategory!.name.toUpperCase()}'
-                            : 'Semua Produk',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  if (_searchQuery.isEmpty && _selectedCategory == null)
-                    TextButton(
-                      onPressed: () => context.push('/products'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.textPrimary,
-                        padding: EdgeInsets.zero,
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Lihat semua',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  decoration: TextDecoration.underline,
-                                ),
-                          ),
-                          const Icon(Icons.arrow_forward, size: 16),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+              // Products Section
+              _buildProductsSection(productState, controller, context),
 
-            const SizedBox(height: 16),
-
-            // Products Grid
-            _buildProductsGrid(ref, context),
-
-            const SizedBox(height: 32),
-          ],
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Build products grid with real data from Supabase
-  Widget _buildProductsGrid(WidgetRef ref, BuildContext context) {
-    final productsAsync = ref.watch(featuredProductsProvider);
+  /// Build category filter chips
+  Widget _buildCategoryFilter(
+    LocationAwareProductController controller,
+    LocationAwareProductState state,
+  ) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          _buildCategoryChip(
+            label: 'Semua',
+            icon: Icons.select_all,
+            color: AppColors.primary,
+            isSelected: state.selectedCategory == null,
+            onTap: () => controller.clearCategory(),
+          ),
+          const SizedBox(width: 8),
+          _buildCategoryChip(
+            label: 'DSLR',
+            icon: Icons.camera,
+            color: AppColors.categoryDSLR,
+            isSelected: state.selectedCategory == ProductCategory.dslr,
+            onTap: () => controller.updateCategory(ProductCategory.dslr),
+          ),
+          const SizedBox(width: 8),
+          _buildCategoryChip(
+            label: 'Mirrorless',
+            icon: Icons.camera_alt,
+            color: AppColors.categoryMirrorless,
+            isSelected: state.selectedCategory == ProductCategory.mirrorless,
+            onTap: () => controller.updateCategory(ProductCategory.mirrorless),
+          ),
+          const SizedBox(width: 8),
+          _buildCategoryChip(
+            label: 'Drone',
+            icon: Icons.flight,
+            color: AppColors.categoryDrone,
+            isSelected: state.selectedCategory == ProductCategory.drone,
+            onTap: () => controller.updateCategory(ProductCategory.drone),
+          ),
+          const SizedBox(width: 8),
+          _buildCategoryChip(
+            label: 'Lens',
+            icon: Icons.lens,
+            color: AppColors.categoryLens,
+            isSelected: state.selectedCategory == ProductCategory.lens,
+            onTap: () => controller.updateCategory(ProductCategory.lens),
+          ),
+        ],
+      ),
+    );
+  }
 
-    return productsAsync.when(
-      data: (products) {
-        // Filter by category
-        var filteredProducts = products;
-        if (_selectedCategory != null) {
-          filteredProducts =
-              products.where((p) => p.category == _selectedCategory).toList();
-        }
-
-        // Filter by search query
-        if (_searchQuery.isNotEmpty) {
-          final query = _searchQuery.toLowerCase();
-          filteredProducts = filteredProducts.where((p) {
-            return p.name.toLowerCase().contains(query) ||
-                (p.description?.toLowerCase().contains(query) ?? false) ||
-                p.category.name.toLowerCase().contains(query);
-          }).toList();
-        }
-
-        if (filteredProducts.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(Icons.search_off,
-                      size: 64, color: AppColors.textTertiary),
-                  const SizedBox(height: 16),
-                  Text(
-                    _searchQuery.isNotEmpty || _selectedCategory != null
-                        ? 'Tidak ada produk ditemukan'
-                        : 'Belum ada produk tersedia',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _searchQuery.isNotEmpty || _selectedCategory != null
-                        ? 'Coba sesuaikan pencarian atau filter Anda'
-                        : 'Cek kembali nanti untuk peralatan kamera baru',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+  Widget _buildCategoryChip({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isSelected ? color.withOpacity(0.15) : Colors.grey[100],
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected ? color : Colors.transparent,
+              width: 1.5,
             ),
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Result count
-            if (_searchQuery.isNotEmpty || _selectedCategory != null)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                child: Text(
-                  '${filteredProducts.length} produk ditemukan',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? color : Colors.grey),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? color : Colors.grey[700],
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // Products grid
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.75,
-                ),
-                itemCount: filteredProducts.length,
-                itemBuilder: (context, index) {
-                  final product = filteredProducts[index];
-                  return _ProductCard(
-                    product: product,
-                    onTap: () => context.push('/products/${product.id}'),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
-      },
-      loading: () => Padding(
-        padding: const EdgeInsets.all(24),
+  /// Build products section
+  Widget _buildProductsSection(
+    LocationAwareProductState state,
+    LocationAwareProductController controller,
+    BuildContext context,
+  ) {
+    // Loading state
+    if (state.isLoading) {
+      return Padding(
+        padding: const EdgeInsets.all(48),
         child: Center(
           child: Column(
             children: [
               CircularProgressIndicator(color: AppColors.primary),
               const SizedBox(height: 16),
               Text(
-                'Memuat produk...',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                'Mencari kamera terdekat...',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
         ),
-      ),
-      error: (error, stack) => Padding(
+      );
+    }
+
+    // Error state
+    if (state.error != null && !state.hasLocation) {
+      return Padding(
         padding: const EdgeInsets.all(24),
         child: Center(
           child: Column(
@@ -547,37 +388,197 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Icon(Icons.error_outline, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
               Text(
-                'Gagal memuat produk',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.error,
-                    ),
+                'Tidak dapat mendapatkan lokasi',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
-                error.toString(),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                state.error!,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => ref.refresh(featuredProductsProvider),
+                onPressed: () => controller.retry(),
                 child: const Text('Coba Lagi'),
               ),
             ],
           ),
+        ),
+      );
+    }
+
+    // No products state
+    if (state.hasLocation && !state.hasProducts) {
+      return NoNearbyProductsWidget(
+        currentRadius: state.radiusKm,
+        onIncreaseRadius: () {
+          final nextRadius = _getNextRadius(state.radiusKm);
+          if (nextRadius != null) {
+            controller.updateRadius(nextRadius);
+          }
+        },
+        onRefresh: () => controller.refresh(),
+      );
+    }
+
+    // Products list
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                state.searchQuery.isNotEmpty
+                    ? 'Hasil Pencarian'
+                    : state.selectedCategory != null
+                        ? 'Kamera ${state.selectedCategory!.value}'
+                        : 'Kamera Terdekat',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Product count
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            '${state.productCount} produk ditemukan dalam radius ${state.radiusKm} km',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Products grid
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.72,
+            ),
+            itemCount: state.products.length,
+            itemBuilder: (context, index) {
+              final product = state.products[index];
+              return _ProductCardWithDistance(
+                key: ValueKey(product.id),
+                product: product,
+                onTap: () => context.push('/products/${product.id}'),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  double? _getNextRadius(double current) {
+    const options = [10.0, 20.0, 30.0, 40.0, 50.0];
+    final index = options.indexOf(current);
+    if (index >= 0 && index < options.length - 1) {
+      return options[index + 1];
+    }
+    return null;
+  }
+
+  void _showRadiusDialog(
+    BuildContext context,
+    LocationAwareProductController controller,
+    double currentRadius,
+  ) {
+    double selectedRadius = currentRadius;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Atur Radius Pencarian'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${selectedRadius.toStringAsFixed(0)} km',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Slider(
+                value: selectedRadius,
+                min: 5.0,
+                max: 50.0,
+                divisions: 9,
+                label: '${selectedRadius.toStringAsFixed(0)} km',
+                onChanged: (value) {
+                  setState(() {
+                    selectedRadius = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('5 km',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text('50 km',
+                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                controller.updateRadius(selectedRadius);
+                Navigator.pop(context);
+              },
+              child: const Text('Terapkan'),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _ProductCard extends StatelessWidget {
-  final Product product;
+/// Product card with distance information
+class _ProductCardWithDistance extends StatelessWidget {
+  final ProductWithDistance product;
   final VoidCallback onTap;
 
-  const _ProductCard({
+  const _ProductCardWithDistance({
+    super.key,
     required this.product,
     required this.onTap,
   });
@@ -633,29 +634,30 @@ class _ProductCard extends StatelessWidget {
                       ),
                     ),
 
-                  // Availability Badge
-                  if (!product.isAvailable)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.error,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'Unavailable',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 10,
-                                  ),
-                        ),
+                  // Distance Badge (top-right)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ProductDistanceBadge(
+                        distanceKm: product.distanceKm,
+                        compact: true,
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -672,11 +674,11 @@ class _ProductCard extends StatelessWidget {
             ),
             child: Text(
               product.category.value,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: _getCategoryColor(product.category),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 10,
-                  ),
+              style: TextStyle(
+                color: _getCategoryColor(product.category),
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
             ),
           ),
 
@@ -685,10 +687,11 @@ class _ProductCard extends StatelessWidget {
           // Product Name
           Text(
             product.name,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -700,16 +703,18 @@ class _ProductCard extends StatelessWidget {
             children: [
               Text(
                 product.shortPrice,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
               ),
               Text(
                 ' / hari',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -718,7 +723,6 @@ class _ProductCard extends StatelessWidget {
     );
   }
 
-  /// Get color for category badge
   Color _getCategoryColor(ProductCategory category) {
     switch (category) {
       case ProductCategory.dslr:

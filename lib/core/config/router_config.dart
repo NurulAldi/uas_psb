@@ -18,7 +18,6 @@ import 'package:rentlens/features/booking/presentation/screens/booking_detail_sc
 import 'package:rentlens/features/booking/presentation/screens/owner_booking_management_screen.dart';
 import 'package:rentlens/features/payment/presentation/screens/payment_screen.dart';
 import 'package:rentlens/features/admin/presentation/screens/admin_dashboard_screen.dart';
-import 'package:rentlens/features/products/presentation/screens/nearby_products_screen.dart';
 import 'package:rentlens/features/auth/presentation/screens/public_profile_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
@@ -298,13 +297,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           final bookingId = state.pathParameters['bookingId']!;
           return PaymentScreen(bookingId: bookingId);
         },
-      ),
-
-      // Nearby Products Route (Location-based search)
-      GoRoute(
-        path: '/nearby-products',
-        name: 'nearby-products',
-        builder: (context, state) => const NearbyProductsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
