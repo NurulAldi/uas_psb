@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/products/providers/my_products_provider.dart';
 
 class MyListingsPage extends ConsumerWidget {
@@ -76,7 +77,7 @@ class MyListingsPage extends ConsumerWidget {
                 ref.invalidate(myProductsProvider);
               }
             },
-            tooltip: 'Add Product',
+            tooltip: AppStrings.addProductTooltip,
           ),
         ],
       ),
@@ -89,10 +90,10 @@ class MyListingsPage extends ConsumerWidget {
                     Icon(Icons.camera_alt_outlined,
                         size: 80, color: Colors.grey),
                     const SizedBox(height: 16),
-                    Text('No listings yet',
+                    Text(AppStrings.noListingsYet,
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 8),
-                    const Text('Tap + button to add your first product'),
+                    const Text(AppStrings.tapPlusButtonToAdd),
                   ],
                 ),
               )
@@ -155,7 +156,17 @@ class MyListingsPage extends ConsumerWidget {
                               ref.invalidate(myProductsProvider);
                             },
                           ),
-                          onTap: () => context.push('/products/${product.id}'),
+                          onTap: () async {
+                            final result =
+                                await context.push<Map<String, dynamic>>(
+                              '/products/${product.id}',
+                            );
+                            // Refresh list if product was deleted or updated
+                            if (result?['deleted'] == true ||
+                                result?['updated'] == true) {
+                              ref.invalidate(myProductsProvider);
+                            }
+                          },
                         ),
                         const Divider(height: 1),
                         Padding(
@@ -174,7 +185,7 @@ class MyListingsPage extends ConsumerWidget {
                                     }
                                   },
                                   icon: const Icon(Icons.edit, size: 18),
-                                  label: const Text('Edit'),
+                                  label: const Text(AppStrings.edit),
                                 ),
                               ),
                               Expanded(
@@ -186,7 +197,7 @@ class MyListingsPage extends ConsumerWidget {
                                     product.name,
                                   ),
                                   icon: const Icon(Icons.delete, size: 18),
-                                  label: const Text('Delete'),
+                                  label: const Text(AppStrings.delete),
                                   style: TextButton.styleFrom(
                                     foregroundColor: Colors.red,
                                   ),

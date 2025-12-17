@@ -83,7 +83,7 @@ class BookingDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   _buildBookingInfo(booking),
                   const SizedBox(height: 24),
-                  _buildPaymentStatus(ref, booking.id),
+                  _buildPaymentStatus(booking),
                   const SizedBox(height: 24),
                   _buildDeliveryInfo(booking),
                   if (booking.notes != null) ...[
@@ -512,8 +512,7 @@ class BookingDetailScreen extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider);
 
     // Check if current user is the owner
-    final isOwner =
-        currentUser != null && booking.product.ownerId == currentUser.id;
+    final isOwner = currentUser != null && booking.ownerId == currentUser.id;
 
     // OWNER ACTION BUTTONS
     if (isOwner) {
@@ -529,105 +528,96 @@ class BookingDetailScreen extends ConsumerWidget {
       BuildContext context, WidgetRef ref, BookingWithProduct booking) {
     // Pending: Show Confirm/Reject buttons (only if paid)
     if (booking.status == BookingStatus.pending) {
-      final paymentAsync = ref.watch(paymentByBookingProvider(booking.id));
+      // Use booking payment status instead of querying payments table again
+      // This ensures consistency with owner booking management screen
+      final isPaid = booking.isPaymentCompleted;
 
-      return paymentAsync.when(
-        data: (payment) {
-          final isPaid = payment?.status == PaymentStatus.paid;
-
-          if (!isPaid) {
-            // Show info that payment is pending
-            return Card(
-              elevation: 2,
-              color: Colors.orange[50],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.orange[300]!, width: 1.5),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Row(
-                  children: [
-                    Icon(Icons.pending, color: Colors.orange[700], size: 28),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '⏳ Menunggu pembayaran dari peminjam',
-                        style: TextStyle(
-                          color: Colors.orange[900],
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+      if (!isPaid) {
+        // Show info that payment is pending
+        return Card(
+          elevation: 2,
+          color: Colors.orange[50],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.orange[300]!, width: 1.5),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Icon(Icons.pending, color: Colors.orange[700], size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '⏳ Menunggu pembayaran dari peminjam',
+                    style: TextStyle(
+                      color: Colors.orange[900],
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            );
-          }
+              ],
+            ),
+          ),
+        );
+      }
 
-          // Payment completed, show confirm/reject buttons
-          return Column(
+      // Payment completed, show confirm/reject buttons
+      return Column(
+        children: [
+          // Payment status indicator
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green[300]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green[700], size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  '✓ Pembayaran Diterima',
+                  style: TextStyle(
+                    color: Colors.green[900],
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
             children: [
-              // Payment status indicator
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green[300]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle,
-                        color: Colors.green[700], size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      '✓ Pembayaran Diterima',
-                      style: TextStyle(
-                        color: Colors.green[900],
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _handleRejectBooking(context, ref, booking),
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text('Tolak'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () =>
-                          _handleRejectBooking(context, ref, booking),
-                      icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Tolak'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: () => _handleConfirmBooking(context, ref, booking),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('Terima Booking'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _handleConfirmBooking(context, ref, booking),
-                      icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Terima Booking'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
       );
     }
 
@@ -806,62 +796,34 @@ class BookingDetailScreen extends ConsumerWidget {
 
     // If pending, show payment and cancel buttons (only for renter)
     if (booking.status == BookingStatus.pending) {
-      final paymentAsync = ref.watch(paymentByBookingProvider(booking.id));
+      // Use booking payment status for consistency
+      final isPaid = booking.isPaymentCompleted;
 
-      return paymentAsync.when(
-        data: (payment) {
-          final isPaid = payment?.status == PaymentStatus.paid;
-
-          return Column(
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: isPaid
-                      ? null
-                      : () => context.push('/payment/${booking.id}'),
-                  icon: Icon(isPaid ? Icons.check_circle : Icons.payment),
-                  label: Text(isPaid ? 'Pembayaran Selesai' : 'Bayar Sekarang'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: isPaid ? Colors.green : null,
-                  ),
-                ),
-              ),
-              if (!isPaid) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () =>
-                        _handleCancelBooking(context, ref, booking),
-                    icon: const Icon(Icons.cancel_outlined),
-                    label: const Text('Batalkan Pesanan'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) => Column(
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => context.push('/payment/${booking.id}'),
-                icon: const Icon(Icons.payment),
-                label: const Text('Bayar Sekarang'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+      return Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: isPaid
+                  ? null
+                  : () async {
+                      final result = await context.push<Map<String, dynamic>>(
+                        '/payment/${booking.id}',
+                      );
+                      if (result?['paymentCompleted'] == true) {
+                        // Refresh booking data
+                        ref.invalidate(bookingWithProductProvider(booking.id));
+                      }
+                    },
+              icon: Icon(isPaid ? Icons.check_circle : Icons.payment),
+              label: Text(isPaid ? 'Pembayaran Selesai' : 'Bayar Sekarang'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: isPaid ? Colors.green : null,
               ),
             ),
+          ),
+          if (!isPaid) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -877,7 +839,7 @@ class BookingDetailScreen extends ConsumerWidget {
               ),
             ),
           ],
-        ),
+        ],
       );
     }
 
@@ -1252,194 +1214,84 @@ class BookingDetailScreen extends ConsumerWidget {
         )}';
   }
 
-  Widget _buildPaymentStatus(WidgetRef ref, String bookingId) {
-    final paymentAsync = ref.watch(paymentByBookingProvider(bookingId));
+  Widget _buildPaymentStatus(BookingWithProduct booking) {
+    // Use booking payment status for consistency
+    final isPaid = booking.isPaymentCompleted;
 
-    return paymentAsync.when(
-      data: (payment) {
-        if (payment == null) {
-          return Card(
-            elevation: 2,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Icon(Icons.payment, color: Colors.grey[400]),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Status Pembayaran',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Belum ada catatan pembayaran',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // Determine status color
-        Color statusColor;
-        IconData statusIcon;
-        switch (payment.status) {
-          case PaymentStatus.paid:
-            statusColor = Colors.green;
-            statusIcon = Icons.check_circle;
-            break;
-          case PaymentStatus.pending:
-            statusColor = Colors.orange;
-            statusIcon = Icons.pending;
-            break;
-          case PaymentStatus.processing:
-            statusColor = Colors.blue;
-            statusIcon = Icons.hourglass_empty;
-            break;
-          case PaymentStatus.failed:
-            statusColor = Colors.red;
-            statusIcon = Icons.error;
-            break;
-          case PaymentStatus.expired:
-            statusColor = Colors.grey;
-            statusIcon = Icons.schedule;
-            break;
-          case PaymentStatus.cancelled:
-            statusColor = Colors.grey;
-            statusIcon = Icons.cancel;
-            break;
-        }
-
-        return Card(
-          elevation: 2,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    if (!isPaid) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Icon(Icons.payment, color: Colors.grey[400]),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.payment, color: AppColors.primary),
-                    const SizedBox(width: 12),
                     const Text(
-                      'Informasi Pembayaran',
+                      'Status Pembayaran',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildPaymentInfoRow(
-                  'ID Pesanan',
-                  payment.orderId.length > 30
-                      ? '${payment.orderId.substring(0, 30)}...'
-                      : payment.orderId,
-                ),
-                const SizedBox(height: 8),
-                _buildPaymentInfoRow(
-                  'Jumlah',
-                  payment.formattedAmount,
-                ),
-                const SizedBox(height: 8),
-                _buildPaymentInfoRow(
-                  'Metode',
-                  payment.method.label,
-                ),
-                const SizedBox(height: 12),
-                const Divider(),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const Text(
-                      'Status: ',
+                    const SizedBox(height: 4),
+                    Text(
+                      'Belum ada catatan pembayaran',
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: statusColor),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(statusIcon, size: 16, color: statusColor),
-                          const SizedBox(width: 6),
-                          Text(
-                            payment.status.label,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: statusColor,
-                            ),
-                          ),
-                        ],
+                        color: Colors.grey[600],
                       ),
                     ),
                   ],
                 ),
-                if (payment.paidAt != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Dibayar pada: ${_formatDate(payment.paidAt!)} ${payment.paidAt!.hour.toString().padLeft(2, '0')}:${payment.paidAt!.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-      loading: () => Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              SizedBox(width: 12),
-              Text('Memuat status pembayaran...'),
             ],
           ),
         ),
+      );
+    }
+
+    // Payment completed
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green[600]),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Status Pembayaran',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Pembayaran Diterima',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.green[700],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

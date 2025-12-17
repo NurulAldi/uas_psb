@@ -9,7 +9,7 @@ class ProfileRepository {
   /// Get profile for current user
   Future<UserProfile?> getCurrentUserProfile() async {
     try {
-      final userId = SupabaseConfig.currentUserId;
+      final userId = await SupabaseConfig.currentUserId;
       if (userId == null) {
         print('⚠️ PROFILE REPOSITORY: No authenticated user');
         return null;
@@ -17,11 +17,8 @@ class ProfileRepository {
 
       print('👤 PROFILE REPOSITORY: Fetching profile for user: $userId');
 
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      final response =
+          await _supabase.from('users').select().eq('id', userId).maybeSingle();
 
       if (response == null) {
         print('⚠️ PROFILE REPOSITORY: No profile found for user');
@@ -52,11 +49,8 @@ class ProfileRepository {
     try {
       print('👤 PROFILE REPOSITORY: Fetching profile for user: $userId');
 
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      final response =
+          await _supabase.from('users').select().eq('id', userId).maybeSingle();
 
       if (response == null) {
         print('⚠️ PROFILE REPOSITORY: No profile found');
@@ -82,7 +76,7 @@ class ProfileRepository {
     String? city,
   }) async {
     try {
-      final userId = SupabaseConfig.currentUserId;
+      final userId = await SupabaseConfig.currentUserId;
       if (userId == null) {
         throw Exception('No authenticated user');
       }
@@ -109,7 +103,7 @@ class ProfileRepository {
       }
 
       final result = await _supabase
-          .from('profiles')
+          .from('users')
           .update(updates)
           .eq('id', userId)
           .select();
@@ -136,7 +130,7 @@ class ProfileRepository {
     required String city,
   }) async {
     try {
-      final userId = SupabaseConfig.currentUserId;
+      final userId = await SupabaseConfig.currentUserId;
       if (userId == null) {
         throw Exception('No authenticated user');
       }
@@ -145,7 +139,7 @@ class ProfileRepository {
       print('   Coordinates: ($latitude, $longitude)');
       print('   City: $city');
 
-      await _supabase.from('profiles').update({
+      await _supabase.from('users').update({
         'latitude': latitude,
         'longitude': longitude,
         'address': address,

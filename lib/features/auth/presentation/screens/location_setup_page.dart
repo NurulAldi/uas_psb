@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:geolocator/geolocator.dart'
+    hide LocationServiceDisabledException, PermissionDeniedException;
 import 'package:go_router/go_router.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/services/location_service.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 import 'package:rentlens/features/auth/data/repositories/profile_repository.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
 
@@ -85,7 +88,7 @@ class _LocationSetupPageState extends ConsumerState<LocationSetupPage> {
     if (_currentPosition == null || _address == null || _city == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please get your current location first'),
+          content: Text(AppStrings.pleaseGetLocationFirst),
           backgroundColor: Colors.orange,
         ),
       );
@@ -102,8 +105,8 @@ class _LocationSetupPageState extends ConsumerState<LocationSetupPage> {
         city: _city!,
       );
 
-      // Refresh profile
-      ref.invalidate(currentUserProfileProvider);
+      // Refresh auth state to show updated location
+      ref.read(authStateProvider.notifier).refreshProfile();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -112,7 +115,7 @@ class _LocationSetupPageState extends ConsumerState<LocationSetupPage> {
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 12),
-                Text('Location saved successfully!'),
+                Text(AppStrings.locationSavedSuccessfully),
               ],
             ),
             backgroundColor: Colors.green,
@@ -130,7 +133,7 @@ class _LocationSetupPageState extends ConsumerState<LocationSetupPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving location: $e'),
+            content: Text('${AppStrings.errorSavingLocation}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -430,11 +433,11 @@ class _LocationSetupPageState extends ConsumerState<LocationSetupPage> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () async {
-                    await _locationService.openLocationSettings();
+                    await _locationService.openAppSettings();
                     _checkLocationService();
                   },
                   icon: const Icon(Icons.settings),
-                  label: const Text('Open Location Settings'),
+                  label: const Text(AppStrings.openLocationSettings),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
@@ -454,7 +457,7 @@ class _LocationSetupPageState extends ConsumerState<LocationSetupPage> {
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
-                              title: const Text('Skip Location Setup?'),
+                              title: const Text(AppStrings.skipLocationSetup),
                               content: const Text(
                                 'You won\'t be able to see or rent products '
                                 'until you set your location. You can do this later '
@@ -473,13 +476,13 @@ class _LocationSetupPageState extends ConsumerState<LocationSetupPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.orange,
                                   ),
-                                  child: const Text('Skip Anyway'),
+                                  child: const Text(AppStrings.skipAnyway),
                                 ),
                               ],
                             ),
                           );
                         },
-                  child: const Text('Skip for now'),
+                  child: const Text(AppStrings.skipForNow),
                 ),
               ],
             ],

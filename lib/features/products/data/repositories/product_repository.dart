@@ -1,6 +1,7 @@
 import 'package:rentlens/core/config/supabase_config.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
 import 'package:rentlens/features/products/domain/models/product_with_distance.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Product Repository
 /// Handles all data operations related to products
@@ -200,7 +201,7 @@ class ProductRepository {
   /// Get products owned by current user
   Future<List<Product>> getMyProducts() async {
     try {
-      final userId = SupabaseConfig.currentUserId;
+      final userId = await SupabaseConfig.currentUserId;
       if (userId == null) {
         throw Exception('No authenticated user');
       }
@@ -252,7 +253,7 @@ class ProductRepository {
     List<String>? imageUrls,
   }) async {
     try {
-      final userId = SupabaseConfig.currentUserId;
+      final userId = await SupabaseConfig.currentUserId;
       if (userId == null) {
         throw Exception('No authenticated user');
       }
@@ -262,6 +263,9 @@ class ProductRepository {
       print('   Category: $category');
       print('   Price: $pricePerDay');
       print('   Owner: $userId');
+
+      // Set user context for RLS policies
+      await _supabase.rpc('set_user_context', params: {'user_id': userId});
 
       final productData = {
         'name': name,
@@ -303,7 +307,32 @@ class ProductRepository {
     bool? isAvailable,
   }) async {
     try {
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
       print('📦 PRODUCT REPOSITORY: Updating product: $productId');
+
+      // Set user context for RLS policies
+      await _supabase
+          .rpc('set_user_context', params: {'user_id': currentUserId});
+
+      // First, check if the product exists and belongs to the user
+      final existingProduct = await _supabase
+          .from('products')
+          .select('id, name, owner_id')
+          .eq('id', productId)
+          .maybeSingle();
+
+      if (existingProduct == null) {
+        print('❌ PRODUCT REPOSITORY: Product $productId not found');
+        throw Exception(
+            'Product not found or you do not have permission to update it');
+      }
+
+      print(
+          '📦 PRODUCT REPOSITORY: Found product: ${existingProduct['name']} (owner: ${existingProduct['owner_id']})');
 
       final updates = <String, dynamic>{};
       if (name != null) updates['name'] = name;
@@ -318,16 +347,28 @@ class ProductRepository {
         throw Exception('No updates provided');
       }
 
-      final response = await _supabase
+      // Perform the update
+      final updateResult = await _supabase
           .from('products')
           .update(updates)
           .eq('id', productId)
-          .select()
-          .single();
+          .select();
 
+      print(
+          '📦 PRODUCT REPOSITORY: Update affected ${updateResult.length} rows');
+
+      if (updateResult.isEmpty) {
+        print(
+            '❌ PRODUCT REPOSITORY: No rows updated - possible RLS or permission issue');
+        throw Exception('Failed to update product - no rows affected');
+      }
+
+      // Get the updated product data
+      final updatedProduct = updateResult.first;
       print('✅ PRODUCT REPOSITORY: Product updated successfully');
+      print('   Updated fields: ${updates.keys.join(', ')}');
 
-      return Product.fromJson(response);
+      return Product.fromJson(updatedProduct);
     } catch (e, stackTrace) {
       print('❌ PRODUCT REPOSITORY: Error updating product = $e');
       print('Stack trace: $stackTrace');
@@ -338,7 +379,16 @@ class ProductRepository {
   /// Delete a product (owner only)
   Future<void> deleteProduct(String productId) async {
     try {
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
       print('📦 PRODUCT REPOSITORY: Deleting product: $productId');
+
+      // Set user context for RLS policies
+      await _supabase
+          .rpc('set_user_context', params: {'user_id': currentUserId});
 
       await _supabase.from('products').delete().eq('id', productId);
 
@@ -367,7 +417,7 @@ class ProductRepository {
       if (category != null) print('   Category: $category');
 
       // Get current user ID to exclude own products
-      final currentUserId = _supabase.auth.currentUser?.id;
+      final currentUserId = await SupabaseConfig.currentUserId;
 
       final params = {
         'user_lat': latitude,
@@ -453,6 +503,60 @@ class ProductRepository {
     } catch (e) {
       print('❌ PRODUCT REPOSITORY: Error getting product distance = $e');
       return null;
+    }
+  }
+
+  /// Test the products_with_location view (for debugging location issues)
+  Future<Map<String, dynamic>> testLocationView() async {
+    try {
+      print('🧪 PRODUCT REPOSITORY: Testing products_with_location view...');
+
+      // Test 1: Count products in view
+      final viewCountResponse = await _supabase
+          .from('products_with_location')
+          .select('id')
+          .count(CountOption.exact);
+
+      final viewCount = viewCountResponse.count ?? 0;
+
+      // Test 2: Count products with location in base tables
+      final productsResponse = await _supabase
+          .from('products')
+          .select('''
+            id,
+            owner_id,
+            users!inner(
+              id,
+              username,
+              latitude,
+              longitude,
+              city
+            )
+          ''')
+          .eq('is_available', true)
+          .not('users.latitude', 'is', null)
+          .not('users.longitude', 'is', null);
+
+      final tableCount = (productsResponse as List).length;
+
+      print(
+          '🧪 PRODUCT REPOSITORY: View count: $viewCount, Table count: $tableCount');
+
+      return {
+        'view_count': viewCount,
+        'table_count': tableCount,
+        'view_working': viewCount > 0,
+        'data_consistent': viewCount == tableCount,
+        'sample_products': productsResponse.take(3).toList(),
+      };
+    } catch (e, stackTrace) {
+      print('❌ PRODUCT REPOSITORY: Error testing location view = $e');
+      print('Stack trace: $stackTrace');
+      return {
+        'error': e.toString(),
+        'view_working': false,
+        'data_consistent': false,
+      };
     }
   }
 }

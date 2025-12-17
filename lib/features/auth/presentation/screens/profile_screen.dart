@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
-import 'package:rentlens/features/auth/providers/auth_controller.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authControllerProvider);
-    // CRITICAL FIX: Use maybeWhen to safely extract user
-    final user = authState.maybeWhen(
-      data: (user) => user,
-      orElse: () => null,
-    );
-    final isLoading = authState.isLoading;
+    final authAsync = ref.watch(authStateProvider);
+    final authState = authAsync.value;
+    final user = authState?.user;
+    final isLoading = authState?.isInitializing ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: const Text(AppStrings.profile)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -30,14 +28,14 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                user?.userMetadata?['full_name'] ?? 'User',
+                user?.fullName ?? 'User',
                 style:
                     const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Text(user?.email ?? 'No email'),
+              Text(user?.email ?? user?.username ?? 'No email'),
               const SizedBox(height: 8),
-              Text(user?.userMetadata?['phone_number'] ?? 'No phone'),
+              Text(user?.phoneNumber ?? 'No phone'),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
@@ -68,7 +66,7 @@ class ProfileScreen extends ConsumerWidget {
                                 AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('Logout'),
+                      : const Text(AppStrings.logout),
                 ),
               ),
             ],

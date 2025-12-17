@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/auth/domain/models/user_profile.dart';
@@ -46,7 +47,7 @@ class PublicProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Profile'),
+        title: const Text(AppStrings.userProfile),
       ),
       body: profileAsync.when(
         data: (profile) {
@@ -61,7 +62,7 @@ class PublicProfileScreen extends ConsumerWidget {
                     color: AppColors.textTertiary,
                   ),
                   const SizedBox(height: 16),
-                  const Text('User not found'),
+                  const Text(AppStrings.userNotFoundMessage),
                 ],
               ),
             );
@@ -149,7 +150,8 @@ class PublicProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  profile.fullName ?? 'User',
+                  profile
+                      .displayName, // Fallback ke username jika fullName kosong
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -386,11 +388,12 @@ class PublicProfileScreen extends ConsumerWidget {
                     title: Text(profile.phoneNumber!),
                     contentPadding: EdgeInsets.zero,
                   ),
-                ListTile(
-                  leading: Icon(Icons.email, color: AppColors.primary),
-                  title: Text(profile.email),
-                  contentPadding: EdgeInsets.zero,
-                ),
+                if (profile.email != null)
+                  ListTile(
+                    leading: Icon(Icons.email, color: AppColors.primary),
+                    title: Text(profile.email!),
+                    contentPadding: EdgeInsets.zero,
+                  ),
               ],
             ),
           ),

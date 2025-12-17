@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rentlens/core/config/supabase_config.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
 import 'package:rentlens/features/products/providers/my_products_provider.dart';
 import 'package:rentlens/features/products/data/services/image_upload_service.dart';
@@ -89,7 +91,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Maksimal 5 gambar. Beberapa gambar dilewati.'),
+                content: Text(AppStrings.maxImagesReached),
               ),
             );
           }
@@ -98,7 +100,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memilih gambar: $e')),
+          SnackBar(content: Text('${AppStrings.imagePickFailed}: $e')),
         );
       }
     }
@@ -124,8 +126,8 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
       List<String> imageUrls = [];
 
       // Handle image upload
-      final userId = SupabaseConfig.currentUserId;
-      if (userId == null) throw Exception('Pengguna tidak terautentikasi');
+      final userId = await SupabaseConfig.currentUserId;
+      if (userId == null) throw Exception(AppStrings.userNotAuthenticated);
 
       // Start with existing images (if in edit mode)
       if (_isEditMode) {
@@ -184,16 +186,22 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_isEditMode
-                ? 'Produk berhasil diperbarui!'
-                : 'Produk berhasil ditambahkan!'),
+                ? AppStrings.productUpdated
+                : AppStrings.productAdded),
           ),
         );
         context.pop(true);
       }
     } catch (e) {
       if (mounted) {
+        // Provide specific error messages based on error type
+        String errorMessage = _getErrorMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Kesalahan: $e')),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     } finally {
@@ -211,7 +219,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'Gambar Produk',
+              AppStrings.images,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             Text(
@@ -346,9 +354,26 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
     final state = ref.watch(productManagementControllerProvider);
     final isLoading = state.isLoading || _isUploading;
 
+    // Show error message if there's an error
+    if (state.hasError && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final errorMessage = _getErrorMessage(state.error!);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        // Clear the error state after showing
+        ref.read(productManagementControllerProvider.notifier).clearError();
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditMode ? 'Edit Produk' : 'Tambah Produk'),
+        title:
+            Text(_isEditMode ? AppStrings.editProduct : AppStrings.addProduct),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -362,19 +387,19 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Nama Produk',
+                  labelText: AppStrings.productName,
                   prefixIcon: Icon(Icons.camera_alt),
                   border: OutlineInputBorder(),
                 ),
                 enabled: !isLoading,
                 validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Wajib diisi' : null,
+                    v == null || v.trim().isEmpty ? AppStrings.required : null,
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<ProductCategory>(
                 value: _selectedCategory,
                 decoration: const InputDecoration(
-                  labelText: 'Kategori',
+                  labelText: AppStrings.category,
                   prefixIcon: Icon(Icons.category),
                   border: OutlineInputBorder(),
                 ),
@@ -390,14 +415,14 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               TextFormField(
                 controller: _priceController,
                 decoration: const InputDecoration(
-                  labelText: 'Harga per Hari (Rp)',
+                  labelText: AppStrings.pricePerDay,
                   prefixIcon: Icon(Icons.attach_money),
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
                 enabled: !isLoading,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Wajib diisi';
+                  if (v == null || v.trim().isEmpty) return AppStrings.required;
                   if (double.tryParse(v) == null) return 'Angka tidak valid';
                   return null;
                 },
@@ -406,7 +431,7 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Deskripsi (Opsional)',
+                  labelText: AppStrings.descriptionOptional,
                   prefixIcon: Icon(Icons.description),
                   border: OutlineInputBorder(),
                 ),
@@ -427,7 +452,9 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(_isEditMode ? 'Perbarui Produk' : 'Tambah Produk'),
+                      : Text(_isEditMode
+                          ? AppStrings.update
+                          : AppStrings.addProduct),
                 ),
               ),
             ],
@@ -435,5 +462,59 @@ class _AddProductPageState extends ConsumerState<AddProductPage> {
         ),
       ),
     );
+  }
+
+  /// Convert technical errors to user-friendly messages
+  String _getErrorMessage(Object error) {
+    // Handle PostgrestException (Supabase errors)
+    if (error is PostgrestException) {
+      // RLS policy violation (code 42501)
+      if (error.code == '42501' ||
+          error.message.contains('row-level security policy') ||
+          error.message.contains('Unauthorized')) {
+        return 'Gagal menyimpan produk. Silakan login kembali dan coba lagi.';
+      }
+
+      // No rows affected / Product not found (code PGRST116)
+      if (error.code == 'PGRST116' ||
+          error.message
+              .contains('Cannot coerce the result to a single JSON object') ||
+          error.message.contains('result contains 0 rows')) {
+        return 'Produk tidak ditemukan atau Anda tidak memiliki izin untuk mengubahnya.';
+      }
+
+      // Other Postgrest errors
+      if (error.message.contains('PGRST301')) {
+        return 'Sesi login telah berakhir. Silakan login kembali.';
+      }
+    }
+
+    // Handle authentication errors
+    if (error.toString().contains('No authenticated user') ||
+        error.toString().contains('not authenticated')) {
+      return 'Anda belum login. Silakan login terlebih dahulu.';
+    }
+
+    // Handle product not found errors
+    if (error.toString().contains('Product not found') ||
+        error.toString().contains('you do not have permission') ||
+        error.toString().contains('Failed to update product')) {
+      return 'Produk tidak ditemukan atau Anda tidak memiliki izin untuk mengubahnya.';
+    }
+
+    // Handle network errors
+    if (error.toString().contains('SocketException') ||
+        error.toString().contains('Network') ||
+        error.toString().contains('connection')) {
+      return 'Koneksi internet bermasalah. Coba lagi dalam beberapa saat.';
+    }
+
+    // Handle timeout errors
+    if (error.toString().contains('timeout')) {
+      return 'Waktu tunggu habis. Periksa koneksi internet dan coba lagi.';
+    }
+
+    // Default error message
+    return 'Terjadi kesalahan saat menyimpan produk. Coba lagi atau hubungi support.';
   }
 }

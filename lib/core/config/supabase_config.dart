@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'env_config.dart';
 
 /// Supabase Client Configuration
@@ -25,12 +26,15 @@ class SupabaseConfig {
     return _client!;
   }
 
-  /// Check if user is authenticated
-  static bool get isAuthenticated => client.auth.currentUser != null;
+  /// Check if user is authenticated (using manual auth)
+  static Future<bool> get isAuthenticated async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_id') != null;
+  }
 
-  /// Get current user
-  static User? get currentUser => client.auth.currentUser;
-
-  /// Get current user ID
-  static String? get currentUserId => client.auth.currentUser?.id;
+  /// Get current user ID from SharedPreferences (manual auth)
+  static Future<String?> get currentUserId async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_id');
+  }
 }

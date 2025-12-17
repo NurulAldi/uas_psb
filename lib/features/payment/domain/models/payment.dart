@@ -1,12 +1,20 @@
 /// Payment Status Enum
 /// Represents the current status of a payment transaction
+import 'package:rentlens/core/constants/app_strings.dart';
+
 enum PaymentStatus {
-  pending('pending', 'Pending', 'Waiting for payment'),
-  processing('processing', 'Processing', 'Payment is being processed'),
-  paid('paid', 'Paid', 'Payment successful'),
-  failed('failed', 'Failed', 'Payment failed'),
-  expired('expired', 'Expired', 'Payment link expired'),
-  cancelled('cancelled', 'Cancelled', 'Payment cancelled');
+  pending(
+      'pending', AppStrings.paymentStatusPending, AppStrings.waitingForPayment),
+  processing('processing', AppStrings.paymentStatusProcessing,
+      AppStrings.paymentBeingProcessed),
+  paid('paid', AppStrings.paymentStatusPaid,
+      AppStrings.paymentSuccessDescription),
+  failed('failed', AppStrings.paymentStatusFailed,
+      AppStrings.paymentFailedDescription),
+  expired('expired', AppStrings.paymentStatusExpired,
+      AppStrings.paymentLinkExpired),
+  cancelled('cancelled', AppStrings.paymentStatusCancelled,
+      AppStrings.paymentCancelledDescription);
 
   final String value;
   final String label;

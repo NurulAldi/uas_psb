@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
 import 'package:rentlens/features/products/domain/models/product_with_distance.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
@@ -34,18 +35,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
-    final currentUser = authState.maybeWhen(
-      data: (user) => user,
-      orElse: () => null,
-    );
-
-    // Watch user profile
-    final profileAsync = ref.watch(currentUserProfileProvider);
-    final userProfile = profileAsync.maybeWhen(
-      data: (profile) => profile,
-      orElse: () => null,
-    );
+    // Watch auth state for user profile
+    final authAsync = ref.watch(authStateProvider);
+    final userProfile = authAsync.value?.user;
 
     // Watch location-aware product state
     final productState = ref.watch(locationAwareProductControllerProvider);
@@ -87,21 +79,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }
             },
             itemBuilder: (context) => [
-              if (currentUser != null)
+              if (userProfile != null)
                 PopupMenuItem(
                   enabled: false,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        userProfile?.fullName ?? currentUser.email ?? 'User',
+                        userProfile.fullName ??
+                            userProfile.email ??
+                            AppStrings.user,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        currentUser.email ?? '',
+                        userProfile.email ?? '',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textTertiary,
                             ),
@@ -116,7 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.edit, size: 18),
                     SizedBox(width: 8),
-                    Text('Edit Profil'),
+                    Text(AppStrings.editProfile),
                   ],
                 ),
               ),
@@ -126,7 +120,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.receipt_long, size: 18),
                     SizedBox(width: 8),
-                    Text('Pesanan Saya'),
+                    Text(AppStrings.myBookings),
                   ],
                 ),
               ),
@@ -136,7 +130,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.inbox, size: 18),
                     SizedBox(width: 8),
-                    Text('Permintaan Booking'),
+                    Text(AppStrings.bookingRequests),
                   ],
                 ),
               ),
@@ -146,7 +140,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.list_alt, size: 18),
                     SizedBox(width: 8),
-                    Text('Daftar Produk Saya'),
+                    Text(AppStrings.myListings),
                   ],
                 ),
               ),
@@ -157,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Icon(Icons.logout, size: 18),
                     SizedBox(width: 8),
-                    Text('Logout'),
+                    Text(AppStrings.logout),
                   ],
                 ),
               ),
@@ -206,7 +200,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   controller: _searchController,
                   onChanged: (value) => controller.updateSearch(value),
                   decoration: InputDecoration(
-                    hintText: 'Cari kamera terdekat...',
+                    hintText: AppStrings.searchNearbyProducts,
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: productState.searchQuery.isNotEmpty
                         ? IconButton(
@@ -265,7 +259,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Row(
         children: [
           _buildCategoryChip(
-            label: 'Semua',
+            label: AppStrings.allCategories,
             icon: Icons.select_all,
             color: AppColors.primary,
             isSelected: state.selectedCategory == null,
@@ -273,7 +267,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(width: 8),
           _buildCategoryChip(
-            label: 'DSLR',
+            label: AppStrings.categoryDSLR,
             icon: Icons.camera,
             color: AppColors.categoryDSLR,
             isSelected: state.selectedCategory == ProductCategory.dslr,
@@ -281,7 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(width: 8),
           _buildCategoryChip(
-            label: 'Mirrorless',
+            label: AppStrings.categoryMirrorless,
             icon: Icons.camera_alt,
             color: AppColors.categoryMirrorless,
             isSelected: state.selectedCategory == ProductCategory.mirrorless,
@@ -297,7 +291,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(width: 8),
           _buildCategoryChip(
-            label: 'Lens',
+            label: AppStrings.categoryLens,
             icon: Icons.lens,
             color: AppColors.categoryLens,
             isSelected: state.selectedCategory == ProductCategory.lens,
@@ -407,7 +401,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => controller.retry(),
-                child: const Text('Coba Lagi'),
+                child: const Text(AppStrings.retry),
               ),
             ],
           ),

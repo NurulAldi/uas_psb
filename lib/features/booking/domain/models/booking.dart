@@ -19,11 +19,11 @@ enum DeliveryMethod {
 
 /// Booking Status Enum
 enum BookingStatus {
-  pending('pending', 'Pending', 'Waiting for owner confirmation'),
-  confirmed('confirmed', 'Confirmed', 'Owner accepted, ready to start'),
-  active('active', 'Active', 'Currently renting'),
-  completed('completed', 'Completed', 'Rental finished'),
-  cancelled('cancelled', 'Cancelled', 'Booking cancelled');
+  pending('pending', 'Menunggu', 'Waiting for owner confirmation'),
+  confirmed('confirmed', 'Dikonfirmasi', 'Owner accepted, ready to start'),
+  active('active', 'Aktif', 'Currently renting'),
+  completed('completed', 'Selesai', 'Rental finished'),
+  cancelled('cancelled', 'Dibatalkan', 'Booking cancelled');
 
   final String value;
   final String label;
@@ -222,15 +222,15 @@ class Booking {
   String get statusText {
     switch (status) {
       case BookingStatus.pending:
-        return 'Pending Confirmation';
+        return 'Menunggu';
       case BookingStatus.confirmed:
-        return 'Confirmed';
+        return 'Dikonfirmasi';
       case BookingStatus.active:
-        return 'Active';
+        return 'Aktif';
       case BookingStatus.completed:
-        return 'Completed';
+        return 'Selesai';
       case BookingStatus.cancelled:
-        return 'Cancelled';
+        return 'Dibatalkan';
     }
   }
 

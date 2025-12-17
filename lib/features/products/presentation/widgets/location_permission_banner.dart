@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Location permission request banner
@@ -56,7 +57,7 @@ class LocationPermissionBanner extends StatelessWidget {
 
           // Title
           Text(
-            'Location Access Required',
+            AppStrings.locationPermission,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -69,8 +70,8 @@ class LocationPermissionBanner extends StatelessWidget {
           // Description
           Text(
             isPermanentlyDenied
-                ? 'Location permission is permanently denied. Please enable it in app settings to discover nearby rental cameras.'
-                : 'We need your location to show you rental cameras available within 20km of your area.',
+                ? AppStrings.locationPermissionPermanentlyDeniedMessage
+                : AppStrings.locationPermissionMessage,
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
@@ -98,7 +99,7 @@ class LocationPermissionBanner extends StatelessWidget {
               ),
               icon: const Icon(Icons.settings, size: 20),
               label: const Text(
-                'Open Settings',
+                AppStrings.openSettings,
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -122,7 +123,7 @@ class LocationPermissionBanner extends StatelessWidget {
               ),
               icon: const Icon(Icons.location_on, size: 20),
               label: const Text(
-                'Allow Location Access',
+                AppStrings.allowLocationAccess,
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
@@ -135,7 +136,7 @@ class LocationPermissionBanner extends StatelessWidget {
           TextButton(
             onPressed: () => _showLocationInfoDialog(context),
             child: Text(
-              'Why do we need this?',
+              AppStrings.whyNeedThis,
               style: TextStyle(
                 fontSize: 13,
                 color: AppColors.primary,
@@ -156,7 +157,7 @@ class LocationPermissionBanner extends StatelessWidget {
           children: [
             Icon(Icons.info_outline, color: AppColors.primary),
             SizedBox(width: 8),
-            Text('About Location Access'),
+            Text(AppStrings.aboutLocationAccessTitle),
           ],
         ),
         content: Column(
@@ -164,29 +165,29 @@ class LocationPermissionBanner extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'RentLens uses your location to:',
+              AppStrings.rentLensUsesLocation,
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
             _buildInfoItem(
               icon: Icons.near_me,
-              text: 'Show cameras available near you (within 20km)',
+              text: AppStrings.locationReason1,
             ),
             _buildInfoItem(
               icon: Icons.local_shipping,
-              text: 'Calculate pickup/return distance and time',
+              text: AppStrings.locationReason2,
             ),
             _buildInfoItem(
               icon: Icons.people,
-              text: 'Connect you with nearby owners for faster transactions',
+              text: AppStrings.locationReason3,
             ),
             _buildInfoItem(
-              icon: Icons.lock_outline,
-              text: 'Your exact location is never shared with others',
+              icon: Icons.privacy_tip,
+              text: AppStrings.locationPrivacy,
             ),
             const SizedBox(height: 12),
             Text(
-              'You can change this permission anytime in your device settings.',
+              AppStrings.locationPermissionChangeAnytime,
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textTertiary,
@@ -198,7 +199,7 @@ class LocationPermissionBanner extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Got it'),
+            child: const Text(AppStrings.ok),
           ),
         ],
       ),

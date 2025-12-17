@@ -12,7 +12,7 @@ class ReportRepository {
     required String reason,
   }) async {
     try {
-      final currentUserId = SupabaseConfig.currentUserId;
+      final currentUserId = await SupabaseConfig.currentUserId;
       if (currentUserId == null) {
         throw Exception('User not authenticated');
       }
@@ -105,7 +105,7 @@ class ReportRepository {
 
       // Ban the user
       await _supabase
-          .from('profiles')
+          .from('users')
           .update({'is_banned': true}).eq('id', reportedUserId);
 
       // Resolve the report

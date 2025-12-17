@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/admin/providers/report_provider.dart';
 
 /// Report User Dialog
@@ -46,7 +47,7 @@ class _ReportUserDialogState extends ConsumerState<ReportUserDialog> {
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Report submitted successfully'),
+          content: Text(AppStrings.reportSubmittedSuccessfully),
           backgroundColor: Colors.green,
         ),
       );
@@ -54,7 +55,7 @@ class _ReportUserDialogState extends ConsumerState<ReportUserDialog> {
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to submit report'),
+          content: Text(AppStrings.failedToSubmitReport),
           backgroundColor: Colors.red,
         ),
       );
@@ -68,7 +69,7 @@ class _ReportUserDialogState extends ConsumerState<ReportUserDialog> {
         children: [
           Icon(Icons.flag, color: Colors.red[700]),
           const SizedBox(width: 8),
-          const Text('Report User'),
+          const Text(AppStrings.reportUser),
         ],
       ),
       content: SingleChildScrollView(
@@ -156,7 +157,7 @@ class _ReportUserDialogState extends ConsumerState<ReportUserDialog> {
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 )
-              : const Text('Submit Report'),
+              : const Text(AppStrings.submitReport),
         ),
       ],
     );

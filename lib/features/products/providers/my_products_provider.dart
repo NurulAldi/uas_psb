@@ -17,6 +17,13 @@ class ProductManagementController extends StateNotifier<AsyncValue<void>> {
   ProductManagementController(this._repository, this._ref)
       : super(const AsyncValue.data(null));
 
+  /// Clear error state
+  void clearError() {
+    if (state.hasError) {
+      state = const AsyncValue.data(null);
+    }
+  }
+
   /// Create a new product
   Future<Product?> createProduct({
     required String name,

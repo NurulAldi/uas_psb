@@ -19,7 +19,7 @@ class BookingRepository {
       print('📦 BOOKING REPOSITORY: Creating booking...');
 
       // Use guest user ID for bookings without authentication
-      final userId = SupabaseConfig.currentUserId ??
+      final userId = await SupabaseConfig.currentUserId ??
           '00000000-0000-0000-0000-000000000000';
 
       print('📦 User ID (guest mode): $userId');
@@ -27,6 +27,9 @@ class BookingRepository {
       print('📦 Start Date: ${startDate.toIso8601String().split('T')[0]}');
       print('📦 End Date: ${endDate.toIso8601String().split('T')[0]}');
       print('📦 Total Price: $totalPrice');
+
+      // Set user context for RLS policies
+      await _supabase.rpc('set_user_context', params: {'user_id': userId});
 
       // Prepare booking data
       final bookingData = {
@@ -64,7 +67,7 @@ class BookingRepository {
       print('📦 BOOKING REPOSITORY: Fetching user bookings...');
 
       // Get current user ID - return empty if not logged in
-      final userId = SupabaseConfig.currentUserId;
+      final userId = await SupabaseConfig.currentUserId;
 
       if (userId == null) {
         print('❌ No user logged in - returning empty list');
@@ -73,10 +76,13 @@ class BookingRepository {
 
       print('   User ID: $userId');
 
+      // 🔒 SECURITY FIX: Set user context for RLS policies before querying
+      await _supabase.rpc('set_user_context', params: {'user_id': userId});
+
       final response = await _supabase
           .from('bookings')
           .select()
-          .eq('user_id', userId)
+          .eq('user_id', userId) // 🔒 EXPLICIT FILTER: Double security with RLS
           .order('created_at', ascending: false);
 
       print('📦 BOOKING REPOSITORY: Received ${response.length} bookings');
@@ -98,10 +104,22 @@ class BookingRepository {
     try {
       print('📦 BOOKING REPOSITORY: Fetching booking with ID: $bookingId');
 
+      // Get current user ID for security
+      final userId = await SupabaseConfig.currentUserId;
+      if (userId == null) {
+        print('❌ No user logged in');
+        return null;
+      }
+
+      // Set user context for RLS
+      await _supabase.rpc('set_user_context', params: {'user_id': userId});
+
       final response = await _supabase
           .from('bookings')
           .select()
           .eq('id', bookingId)
+          .eq('user_id',
+              userId) // 🔒 SECURITY: Only allow access to own bookings
           .single();
 
       print('📦 BOOKING REPOSITORY: Booking found');
@@ -122,6 +140,16 @@ class BookingRepository {
   }) async {
     try {
       print('📦 BOOKING REPOSITORY: Updating booking status...');
+
+      // Get current user ID for context
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      // Set user context for RLS policies
+      await _supabase
+          .rpc('set_user_context', params: {'user_id': currentUserId});
 
       // ✨ NEW: If owner is trying to confirm, check payment first
       if (status == BookingStatus.confirmed) {
@@ -232,7 +260,7 @@ class BookingRepository {
           '📦 BOOKING REPOSITORY: Fetching bookings with status: ${status.value}');
 
       // Use guest user ID for bookings without authentication
-      final userId = SupabaseConfig.currentUserId ??
+      final userId = await SupabaseConfig.currentUserId ??
           '00000000-0000-0000-0000-000000000000';
 
       final response = await _supabase
@@ -262,7 +290,7 @@ class BookingRepository {
       print('📦 ========== FETCHING USER BOOKINGS ==========');
 
       // Get current user ID
-      final userId = SupabaseConfig.currentUserId;
+      final userId = await SupabaseConfig.currentUserId;
 
       print('   Current User ID: $userId');
 
@@ -271,13 +299,27 @@ class BookingRepository {
         return [];
       }
 
+      // 🔒 SECURITY FIX: Set user context for RLS policies before querying
+      print('   🔒 Setting user context for user: $userId');
+      await _supabase.rpc('set_user_context', params: {'user_id': userId});
+
+      // Note: get_current_user_context function may not be available in schema cache
+      // The explicit user_id filter below provides the security we need
+
       final response = await _supabase
           .from('bookings')
           .select('*, products(*)')
-          .eq('user_id', userId)
+          .eq('user_id', userId) // 🔒 EXPLICIT FILTER: Double security with RLS
           .order('created_at', ascending: false);
 
-      print('   Found ${response.length} bookings for user: $userId');
+      print('   📊 Raw query returned ${response.length} results');
+
+      // Debug: Log all booking IDs and their user_ids
+      for (var item in response) {
+        final booking = item as Map<String, dynamic>;
+        print(
+            '   📋 Booking ID: ${booking['id']}, User ID: ${booking['user_id']}, Product: ${booking['products']?['name'] ?? 'Unknown'}');
+      }
 
       if (response.isEmpty) {
         print('   No bookings found');
@@ -287,11 +329,12 @@ class BookingRepository {
       final bookingsWithProducts = (response as List).map((json) {
         final booking = json as Map<String, dynamic>;
         print(
-            '   - Booking ID: ${booking['id']}, Product: ${booking['products']?['name'] ?? 'Unknown'}');
+            '   ✅ Processing booking ID: ${booking['id']}, Product: ${booking['products']?['name'] ?? 'Unknown'}');
         return BookingWithProduct.fromJson(booking);
       }).toList();
 
-      print('✅ ========== USER BOOKINGS LOADED ==========');
+      print(
+          '✅ ========== USER BOOKINGS LOADED: ${bookingsWithProducts.length} ==========');
       return bookingsWithProducts;
     } catch (e, stackTrace) {
       print('❌ BOOKING REPOSITORY: Error fetching bookings with products = $e');
@@ -366,7 +409,7 @@ class BookingRepository {
       print('📦 BOOKING REPOSITORY: Uploading payment proof image...');
 
       // Use guest user ID for bookings without authentication
-      final userId = SupabaseConfig.currentUserId ??
+      final userId = await SupabaseConfig.currentUserId ??
           '00000000-0000-0000-0000-000000000000';
 
       // Generate unique filename

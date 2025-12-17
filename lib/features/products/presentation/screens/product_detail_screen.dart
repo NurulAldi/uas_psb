@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
-import 'package:rentlens/core/config/supabase_config.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
+import 'package:rentlens/core/utils/navigation_helper.dart';
 import 'package:rentlens/features/products/providers/product_provider.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
 import 'package:rentlens/features/admin/presentation/widgets/report_user_dialog.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
+import 'package:rentlens/features/auth/providers/auth_provider.dart' as auth;
 import 'package:rentlens/features/products/presentation/widgets/zoomable_image_viewer.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
@@ -31,14 +33,14 @@ class ProductDetailScreen extends ConsumerWidget {
                       size: 64, color: AppColors.textTertiary),
                   const SizedBox(height: 16),
                   Text(
-                    'Product not found',
+                    AppStrings.productNotFound,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: AppColors.textSecondary,
                         ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'The product you\'re looking for doesn\'t exist',
+                    AppStrings.productNotFoundMessage,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textTertiary,
                         ),
@@ -46,8 +48,11 @@ class ProductDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () => context.go('/'),
-                    child: const Text('Go Home'),
+                    onPressed: () => NavigationHelper.popOrNavigate(
+                      context,
+                      fallbackRoute: '/',
+                    ),
+                    child: const Text(AppStrings.goHome),
                   ),
                 ],
               ),
@@ -101,8 +106,11 @@ class ProductDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 16),
                     OutlinedButton(
-                      onPressed: () => context.go('/'),
-                      child: const Text('Go Home'),
+                      onPressed: () => NavigationHelper.popOrNavigate(
+                        context,
+                        fallbackRoute: '/',
+                      ),
+                      child: const Text(AppStrings.goHome),
                     ),
                   ],
                 ),
@@ -124,13 +132,10 @@ class ProductDetailScreen extends ConsumerWidget {
           pinned: true,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context);
-              } else {
-                context.go('/');
-              }
-            },
+            onPressed: () => NavigationHelper.popOrNavigate(
+              context,
+              fallbackRoute: '/',
+            ),
           ),
           flexibleSpace: FlexibleSpaceBar(
             background: product.imageUrls.isNotEmpty
@@ -150,25 +155,36 @@ class ProductDetailScreen extends ConsumerWidget {
           ),
           actions: [
             // Report button (only for non-owners)
-            if (!_isOwner(product))
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.shadow,
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+            Consumer(
+              builder: (context, ref, child) {
+                final authState = ref.watch(auth.authProvider);
+                final isOwner = authState.userProfile != null &&
+                               authState.userProfile!.id == product.ownerId;
+
+                // Only show report button if user is authenticated and not the owner
+                if (authState.isAuthenticated && !isOwner) {
+                  return IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.shadow,
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Icon(Icons.flag, size: 20, color: Colors.red[700]),
-                ),
-                onPressed: () => _showReportDialog(context, ref, product),
-              ),
+                      child: Icon(Icons.flag, size: 20, color: Colors.red[700]),
+                    ),
+                    onPressed: () => _showReportDialog(context, ref, product),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
             const SizedBox(width: 8),
           ],
         ),
@@ -225,7 +241,7 @@ class ProductDetailScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Rental price',
+                            AppStrings.rentalPrice,
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: AppColors.textSecondary,
@@ -307,8 +323,20 @@ class ProductDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // Owner Section
-                if (product.ownerId != null && !_isOwner(product))
-                  _OwnerInfoSection(ownerId: product.ownerId!),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final authState = ref.watch(auth.authProvider);
+                    final isOwner = authState.isAuthenticated &&
+                                   authState.userProfile != null &&
+                                   authState.userProfile!.id == product.ownerId;
+
+                    // Only show owner section if user is authenticated and not the owner
+                    if (product.ownerId != null && authState.isAuthenticated && !isOwner) {
+                      return _OwnerInfoSection(ownerId: product.ownerId!);
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
 
                 const SizedBox(height: 32),
               ],
@@ -317,12 +345,6 @@ class ProductDetailScreen extends ConsumerWidget {
         ),
       ],
     );
-  }
-
-  /// Check if current user is the owner
-  bool _isOwner(Product product) {
-    final currentUserId = SupabaseConfig.currentUserId;
-    return currentUserId != null && currentUserId == product.ownerId;
   }
 
   /// Show report dialog
@@ -341,7 +363,7 @@ class ProductDetailScreen extends ConsumerWidget {
       context: context,
       builder: (context) => ReportUserDialog(
         reportedUserId: product.ownerId!,
-        reportedUserName: owner?.fullName ?? 'Product Owner',
+        reportedUserName: owner?.fullName ?? AppStrings.productOwner,
       ),
     );
   }
@@ -379,7 +401,7 @@ class _OwnerInfoSection extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Owner',
+              AppStrings.owner,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -437,7 +459,7 @@ class _OwnerInfoSection extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            owner.fullName ?? 'Owner',
+                            owner.fullName ?? AppStrings.owner,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -497,8 +519,10 @@ class _BottomActionBar extends ConsumerStatefulWidget {
 class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
   /// Check if current user is the owner of this product
   bool get _isOwner {
-    final currentUserId = SupabaseConfig.currentUserId;
-    return currentUserId != null && currentUserId == widget.product.ownerId;
+    final authState = ref.watch(auth.authProvider);
+    return authState.isAuthenticated &&
+           authState.userProfile != null &&
+           authState.userProfile!.id == widget.product.ownerId;
   }
 
   @override
@@ -597,7 +621,7 @@ class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'This is your product listing',
+                      AppStrings.thisIsYourProduct,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
@@ -617,7 +641,7 @@ class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
                       extra: widget.product);
                 },
                 icon: const Icon(Icons.edit),
-                label: const Text('Edit Product'),
+                label: const Text(AppStrings.editProduct),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

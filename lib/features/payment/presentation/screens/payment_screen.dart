@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/services/midtrans_service.dart';
+import 'package:rentlens/core/utils/navigation_helper.dart';
 import 'package:rentlens/features/payment/data/repositories/payment_repository.dart';
 import 'package:rentlens/features/payment/domain/models/payment.dart';
 import 'package:rentlens/features/booking/data/repositories/booking_repository.dart';
@@ -53,7 +55,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       // Get booking details
       final booking = await _bookingRepository.getBookingById(widget.bookingId);
       if (booking == null) {
-        throw Exception('Booking not found');
+        throw Exception(AppStrings.bookingNotFound);
       }
 
       setState(() => _booking = booking);
@@ -95,13 +97,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       final midtransResponse = await _midtransService.chargeQris(
         orderId: orderId,
         grossAmount: amount,
-        customerName: 'User',
+        customerName: AppStrings.user,
         customerEmail: 'user@example.com',
         customerPhone: '08123456789',
         itemDetails: [
           {
             'id': booking.productId,
-            'name': 'Product Rental',
+            'name': AppStrings.productRental,
             'price': amount,
             'quantity': 1,
           }
@@ -155,7 +157,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               children: [
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
-                Text('Processing payment...'),
+                Text(AppStrings.processingPayment),
               ],
             ),
           ),
@@ -253,7 +255,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'Payment Successful!',
+              AppStrings.paymentSuccessful,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 20),
             ),
@@ -268,8 +270,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
-                context.go('/bookings/${widget.bookingId}');
+                Navigator.pop(context); // Close success dialog
+                NavigationHelper.popWithResult(
+                  context,
+                  result: {'paymentCompleted': true},
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
@@ -278,7 +283,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('View Booking'),
+              child: const Text(AppStrings.viewBooking),
             ),
           ),
         ],
@@ -290,7 +295,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Payment'),
+        title: const Text(AppStrings.payment),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -309,7 +314,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Preparing payment...'),
+            Text(AppStrings.preparingPayment),
           ],
         ),
       );
@@ -320,7 +325,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     if (_payment == null || _booking == null) {
-      return const Center(child: Text('Payment not found'));
+      return const Center(child: Text(AppStrings.paymentNotFound));
     }
 
     return SingleChildScrollView(
@@ -368,7 +373,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Total Amount',
+            AppStrings.totalAmount,
             style: TextStyle(
               fontSize: 14,
               color: Colors.white.withOpacity(0.9),
@@ -489,7 +494,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               Icon(Icons.access_time, color: Colors.blue[700], size: 20),
               const SizedBox(width: 8),
               Text(
-                'Payment Expires In:',
+                AppStrings.paymentExpiresIn,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: Colors.grey[700],
@@ -519,7 +524,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           const SizedBox(height: 8),
           _buildInfoRow(
             icon: Icons.payment,
-            label: 'Payment Method',
+            label: AppStrings.paymentMethodLabel,
             value: 'QRIS',
           ),
         ],
@@ -585,7 +590,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           _buildInstructionStep(
               1, 'Open your e-wallet app (GoPay, OVO, DANA, etc.)'),
           _buildInstructionStep(2, 'Scan the QR code above'),
-          _buildInstructionStep(3, 'Confirm payment in your app'),
+          _buildInstructionStep(3, AppStrings.confirmPaymentInYourApp),
           _buildInstructionStep(4, 'Wait for payment confirmation'),
           const SizedBox(height: 12),
           Container(
@@ -687,7 +692,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Cancel Payment',
+              AppStrings.cancelPayment,
               style: TextStyle(
                 color: Colors.grey[600],
                 fontWeight: FontWeight.w600,
@@ -709,7 +714,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             Icon(Icons.error_outline, size: 64, color: AppColors.error),
             const SizedBox(height: 16),
             const Text(
-              'Payment Error',
+              AppStrings.paymentError,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),

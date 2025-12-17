@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 
 /// Location status header
@@ -59,7 +60,7 @@ class LocationStatusHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  cityName ?? 'Your Location',
+                  cityName ?? AppStrings.yourLocationPlaceholder,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -95,7 +96,7 @@ class LocationStatusHeader extends StatelessWidget {
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        '$productCount ${productCount == 1 ? "product" : "products"}',
+                        '$productCount ${productCount == 1 ? "produk" : "produk"}',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -123,7 +124,7 @@ class LocationStatusHeader extends StatelessWidget {
                     color: AppColors.primary,
                     size: 18,
                   ),
-                  tooltip: 'Refresh',
+                  tooltip: AppStrings.refresh,
                   padding: const EdgeInsets.all(6),
                   constraints: const BoxConstraints(
                     minWidth: 32,
@@ -155,7 +156,7 @@ class LocationStatusHeader extends StatelessWidget {
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            'Adjust',
+                            AppStrings.adjust,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

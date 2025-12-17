@@ -6,14 +6,15 @@ import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/booking/data/repositories/booking_repository.dart';
 import 'package:rentlens/features/booking/domain/models/booking_with_product.dart';
 import 'package:rentlens/features/booking/domain/models/booking.dart';
-import 'package:rentlens/features/auth/providers/profile_provider.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 import 'package:rentlens/features/payment/data/repositories/payment_repository.dart';
 import 'package:rentlens/features/payment/domain/models/payment.dart';
 
 /// Provider for owner bookings
 final ownerBookingsProvider =
     FutureProvider.autoDispose<List<BookingWithProduct>>((ref) async {
-  final profile = await ref.watch(currentUserProfileProvider.future);
+  final authAsync = ref.watch(authStateProvider);
+  final profile = authAsync.value?.user;
   if (profile == null) return [];
 
   final repository = BookingRepository();
@@ -592,27 +593,37 @@ class _OwnerBookingManagementScreenState
   }
 
   Widget _buildPaymentStatusBadge(String bookingId) {
-    return FutureBuilder<Payment?>(
-      future: PaymentRepository().getPaymentByBookingId(bookingId),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data == null) {
-          // No payment yet
+    // Get booking data to check payment status from bookings table
+    // This ensures consistency with _buildPaymentStatusInfo
+    final ownerBookingsAsync = ref.watch(ownerBookingsProvider);
+
+    return ownerBookingsAsync.when(
+      data: (bookings) {
+        // Find the booking with matching ID
+        final booking = bookings.where((b) => b.id == bookingId).firstOrNull;
+
+        if (booking == null) {
+          return _buildUnpaidBadge();
+        }
+
+        // Use same logic as _buildPaymentStatusInfo
+        if (booking.isPaymentCompleted) {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.grey[200],
+              color: Colors.green[100],
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey[400]!),
+              border: Border.all(color: Colors.green[400]!),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.payment, size: 12, color: Colors.grey[600]),
+                Icon(Icons.check_circle, size: 12, color: Colors.green[700]),
                 const SizedBox(width: 4),
                 Text(
-                  'Unpaid',
+                  'Paid',
                   style: TextStyle(
-                    color: Colors.grey[700],
+                    color: Colors.green[900],
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -620,72 +631,38 @@ class _OwnerBookingManagementScreenState
               ],
             ),
           );
+        } else {
+          return _buildUnpaidBadge();
         }
-
-        final payment = snapshot.data!;
-        Color badgeColor;
-        Color textColor;
-        IconData icon;
-        String label;
-
-        switch (payment.status) {
-          case PaymentStatus.paid:
-            badgeColor = Colors.green[100]!;
-            textColor = Colors.green[900]!;
-            icon = Icons.check_circle;
-            label = 'Paid';
-            break;
-          case PaymentStatus.pending:
-            badgeColor = Colors.orange[100]!;
-            textColor = Colors.orange[900]!;
-            icon = Icons.pending;
-            label = 'Pending';
-            break;
-          case PaymentStatus.processing:
-            badgeColor = Colors.blue[100]!;
-            textColor = Colors.blue[900]!;
-            icon = Icons.hourglass_empty;
-            label = 'Processing';
-            break;
-          case PaymentStatus.failed:
-            badgeColor = Colors.red[100]!;
-            textColor = Colors.red[900]!;
-            icon = Icons.error;
-            label = 'Failed';
-            break;
-          case PaymentStatus.expired:
-          case PaymentStatus.cancelled:
-            badgeColor = Colors.grey[200]!;
-            textColor = Colors.grey[700]!;
-            icon = Icons.cancel;
-            label = 'Cancelled';
-            break;
-        }
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: badgeColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: textColor.withOpacity(0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 12, color: textColor),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        );
       },
+      loading: () => _buildUnpaidBadge(),
+      error: (_, __) => _buildUnpaidBadge(),
+    );
+  }
+
+  Widget _buildUnpaidBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[400]!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.payment, size: 12, color: Colors.grey[600]),
+          const SizedBox(width: 4),
+          Text(
+            'Unpaid',
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

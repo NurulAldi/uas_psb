@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/admin/data/admin_repository.dart';
 import 'package:rentlens/features/admin/providers/admin_provider.dart';
-import 'package:rentlens/features/admin/providers/current_admin_provider.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 import 'package:rentlens/features/auth/domain/models/user_profile.dart';
 
 final allUsersProvider =
@@ -47,12 +48,13 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Ban User'),
+        title: const Text(AppStrings.banUserTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Are you sure you want to ban ${user.fullName ?? user.email}?'),
+            Text(
+                'Are you sure you want to ban ${user.fullName ?? user.email}?'),
             const SizedBox(height: 16),
             TextField(
               controller: reasonController,
@@ -73,44 +75,137 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Ban'),
+            child: const Text(AppStrings.ban),
           ),
         ],
       ),
     );
 
     if (confirmed == true && mounted) {
-      final admin = ref.read(currentAdminProvider);
-      if (admin == null) return;
+      print('═══════════════════════════════════════════');
+      print('🎯 UI: Ban user dialog confirmed');
+      print('═══════════════════════════════════════════');
 
-      final reason = reasonController.text.trim();
-      if (reason.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please provide a reason')),
-        );
+      // Get current logged-in user (should be admin)
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null) {
+        print('❌ UI ERROR: No user logged in');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Not logged in. Please login again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        reasonController.dispose();
         return;
       }
 
+      // Verify user is admin
+      if (currentUser.role != 'admin') {
+        print('❌ UI ERROR: User is not admin (role: ${currentUser.role})');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Only admins can ban users.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        reasonController.dispose();
+        return;
+      }
+
+      print('✅ UI: Admin found: ${currentUser.id} (${currentUser.fullName})');
+
+      final reason = reasonController.text.trim();
+      if (reason.isEmpty) {
+        print('❌ UI ERROR: Reason is empty');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(AppStrings.provideReason)),
+          );
+        }
+        reasonController.dispose();
+        return;
+      }
+
+      print('✅ UI: Reason provided (${reason.length} chars)');
+      print('───────────────────────────────────────────');
+
+      // Show loading indicator
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text('Banning user...'),
+              ],
+            ),
+            duration: Duration(seconds: 30),
+          ),
+        );
+      }
+
+      print('🚀 UI: Calling banUser repository method...');
       final adminRepo = ref.read(adminRepositoryProvider);
       final success = await adminRepo.banUser(
         userId: user.id,
-        adminId: admin.id,
+        adminId: currentUser.id,
         reason: reason,
       );
 
+      print('───────────────────────────────────────────');
+      print('📊 UI: Got result from repository: $success');
+      print('═══════════════════════════════════════════');
+
+      // Hide loading
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+
       if (mounted) {
         if (success) {
+          print('✅ UI: Showing success message');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User banned successfully')),
+            SnackBar(
+              content: Text(
+                '✅ ${user.fullName ?? user.email} has been banned successfully!',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
           );
+
+          print('🔄 UI: Invalidating providers to refresh data');
           ref.invalidate(allUsersProvider);
           ref.invalidate(bannedUsersProvider);
+
+          print('✅ UI: Ban operation completed successfully!');
         } else {
+          print('❌ UI: Showing error message');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to ban user')),
+            const SnackBar(
+              content: Text('❌ Failed to ban user. Check console for details.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
           );
+          print('❌ UI: Ban operation failed!');
         }
       }
+    } else {
+      print('⏭️ UI: Ban operation cancelled by user');
     }
 
     reasonController.dispose();
@@ -120,8 +215,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Unban User'),
-        content: Text('Are you sure you want to unban $userName?'),
+        title: const Text(AppStrings.unbanUserTitle),
+        content: Text('${AppStrings.areYouSureUnban} $userName?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -129,7 +224,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Unban'),
+            child: const Text(AppStrings.unban),
           ),
         ],
       ),
@@ -142,13 +237,13 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User unbanned successfully')),
+            const SnackBar(content: Text(AppStrings.userUnbannedSuccessfully)),
           );
           ref.invalidate(allUsersProvider);
           ref.invalidate(bannedUsersProvider);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to unban user')),
+            const SnackBar(content: Text(AppStrings.failedToUnbanUser)),
           );
         }
       }
@@ -159,7 +254,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('User Management'),
+        title: const Text(AppStrings.userManagement),
         automaticallyImplyLeading: false,
         bottom: TabBar(
           controller: _tabController,
@@ -188,7 +283,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           ref.invalidate(allUsersProvider);
         },
         child: users.isEmpty
-            ? const Center(child: Text('No users found'))
+            ? const Center(child: Text(AppStrings.noUsersFound))
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: users.length,
@@ -203,14 +298,17 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                             : AppColors.primary.withOpacity(0.1),
                         child: Icon(
                           user.isBanned ? Icons.block : Icons.person,
-                          color: user.isBanned ? AppColors.error : AppColors.primary,
+                          color: user.isBanned
+                              ? AppColors.error
+                              : AppColors.primary,
                         ),
                       ),
-                      title: Text(user.fullName ?? 'No Name'),
+                      title: Text(user
+                          .displayName), // Fallback to username if fullName is null
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user.email),
+                          Text(user.email ?? user.username),
                           if (user.phoneNumber != null)
                             Text('Phone: ${user.phoneNumber}'),
                           if (user.isBanned)
@@ -276,7 +374,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                         backgroundColor: AppColors.error.withOpacity(0.1),
                         child: Icon(Icons.block, color: AppColors.error),
                       ),
-                      title: Text(user['full_name'] ?? 'No Name'),
+                      title: Text(
+                          user['full_name'] ?? user['username'] ?? 'No Name'),
                       subtitle: Text(user['email']),
                       children: [
                         Padding(
@@ -284,8 +383,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildInfoRow(
-                                  'Phone', user['phone'] ?? 'N/A'),
+                              _buildInfoRow('Phone', user['phone'] ?? 'N/A'),
                               _buildInfoRow('Products Count',
                                   user['products_count'].toString()),
                               _buildInfoRow('Bookings Count',
@@ -302,7 +400,9 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                                 child: ElevatedButton.icon(
                                   onPressed: () => _unbanUser(
                                     user['id'],
-                                    user['full_name'] ?? user['email'],
+                                    user['full_name'] ??
+                                        user['username'] ??
+                                        user['email'],
                                   ),
                                   icon: const Icon(Icons.check_circle),
                                   label: const Text('Unban User'),

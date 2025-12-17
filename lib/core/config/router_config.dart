@@ -1,9 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
-import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/auth/presentation/screens/login_screen.dart';
 import 'package:rentlens/features/auth/presentation/screens/register_screen.dart';
 import 'package:rentlens/features/auth/presentation/screens/edit_profile_page.dart';
@@ -19,140 +17,95 @@ import 'package:rentlens/features/booking/presentation/screens/owner_booking_man
 import 'package:rentlens/features/payment/presentation/screens/payment_screen.dart';
 import 'package:rentlens/features/admin/presentation/screens/admin_dashboard_screen.dart';
 import 'package:rentlens/features/auth/presentation/screens/public_profile_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-
-/// Helper class to refresh GoRouter when auth state changes
-class GoRouterRefreshStream extends ChangeNotifier {
-  GoRouterRefreshStream(Stream<supabase.AuthState> stream) {
-    notifyListeners();
-    _subscription = stream.asBroadcastStream().listen(
-      (event) {
-        print('🔄 ROUTER REFRESH: Auth state changed');
-        notifyListeners();
-      },
-    );
-  }
-
-  late final StreamSubscription<supabase.AuthState> _subscription;
-
-  @override
-  void dispose() {
-    _subscription.cancel();
-    super.dispose();
-  }
-}
 
 /// GoRouter Configuration Provider with Authentication
+/// Simplified with single source of truth (authStateProvider)
 final routerProvider = Provider<GoRouter>((ref) {
   // Watch auth state to trigger router refresh on auth changes
-  ref.watch(authControllerProvider);
-
-  // Watch profile to trigger refresh when profile loads
-  ref.watch(currentUserProfileProvider);
+  final authAsync = ref.watch(authStateProvider);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     debugLogDiagnostics: true,
-    refreshListenable: GoRouterRefreshStream(
-      ref.read(authControllerProvider.notifier).authStateChanges,
-    ),
     redirect: (BuildContext context, GoRouterState state) {
-      // Safe access to auth state
-      final authState = ref.read(authControllerProvider);
-      final profileAsync = ref.read(currentUserProfileProvider);
-
-      final isAuthenticated = authState.maybeWhen(
-        data: (user) => user != null,
-        orElse: () => false,
-      );
-
+      final auth = authAsync.value;
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
       final isAdminRoute = state.matchedLocation.startsWith('/admin');
-      final isLoadingRoute = state.matchedLocation == '/loading';
-      final isAuthLoading = authState.isLoading;
-      final isProfileLoading = profileAsync.isLoading;
+      final isSplashRoute = state.matchedLocation == '/splash';
 
-      // Get user role from profile
-      final userRole = profileAsync.maybeWhen(
-        data: (profile) => profile?.role,
-        orElse: () => null,
-      );
+      print('🔀 ROUTER REDIRECT: ${state.matchedLocation}');
+      print('   authStatus: ${auth?.status}');
+      print('   user: ${auth?.user?.username}');
+      print('   role: ${auth?.user?.role}');
 
-      print('🔀 ROUTER: location=${state.matchedLocation}');
-      print('   auth=$isAuthenticated, role=$userRole');
-      print('   authLoading=$isAuthLoading, profileLoading=$isProfileLoading');
-
-      // Rule 1: If auth is loading, stay on current page
-      if (isAuthLoading) {
-        print('🔀 ROUTER: Auth loading - staying on current page');
-        return null;
+      // Rule 1: During initialization, show splash screen
+      if (auth == null || auth.isInitializing) {
+        // FIX: If user is on auth route (login in progress), stay there during loading
+        if (isAuthRoute) {
+          print('   → Stay on auth page (login in progress)');
+          return null;
+        }
+        if (isSplashRoute) {
+          print('   → Stay on splash (initializing)');
+          return null;
+        }
+        print('   → Redirect to /splash (initializing)');
+        return '/splash';
       }
 
-      // Rule 2: If authenticated but profile still loading, go to loading screen
-      if (isAuthenticated && isProfileLoading && !isLoadingRoute) {
-        print('🔀 ROUTER: Profile loading - redirect to loading screen');
-        return '/loading';
-      }
-
-      // Rule 3: If on loading screen but profile already loaded, redirect based on role
-      if (isLoadingRoute && !isProfileLoading) {
-        final isAdmin = userRole == 'admin';
-        if (isAdmin) {
-          print(
-              '🔀 ROUTER: Profile loaded (admin) -> redirect to admin dashboard');
-          return '/admin';
-        } else {
-          print('🔀 ROUTER: Profile loaded (user) -> redirect to home');
-          return '/';
+      // Rule 2: Unauthenticated users must go to auth pages
+      if (auth.isUnauthenticated) {
+        if (isAuthRoute) {
+          print('   → Allow auth page');
+          return null;
         }
-      }
-
-      // Rule 4: If authenticated with profile loaded, check admin role and redirect
-      if (isAuthenticated && !isProfileLoading) {
-        final isAdmin = userRole == 'admin';
-
-        print('   isAdmin=$isAdmin');
-
-        // If admin and on auth page, redirect to admin dashboard
-        if (isAdmin && isAuthRoute) {
-          print('🔀 ROUTER: Admin user -> redirect to admin dashboard');
-          return '/admin';
-        }
-
-        // If admin and on regular user pages (not admin/loading route), redirect to admin
-        if (isAdmin && !isAdminRoute && !isAuthRoute && !isLoadingRoute) {
-          print(
-              '🔀 ROUTER: Admin accessing user pages -> redirect to admin dashboard');
-          return '/admin';
-        }
-
-        // If regular user and on auth page, redirect to home
-        if (!isAdmin && isAuthRoute) {
-          print('🔀 ROUTER: Regular user -> redirect to home');
-          return '/';
-        }
-
-        // If regular user trying to access admin, deny
-        if (!isAdmin && isAdminRoute) {
-          print('🔀 ROUTER: Non-admin user -> access denied to admin');
-          return '/';
-        }
-      }
-
-      // Rule 5: If not authenticated, must go to auth pages (except auth routes)
-      if (!isAuthenticated && !isAuthRoute) {
-        print('🔀 ROUTER: Not authenticated -> redirect to login');
+        print('   → Redirect to /auth/login (not authenticated)');
         return '/auth/login';
       }
 
-      print('🔀 ROUTER: No redirect needed');
+      // Rule 3: Authenticated users - handle role-based routing
+      if (auth.isAuthenticated) {
+        final isAdmin = auth.user?.role == 'admin';
+
+        // Kick authenticated users out of auth pages
+        if (isAuthRoute) {
+          final destination = isAdmin ? '/admin' : '/';
+          print('   → Redirect to $destination (already authenticated)');
+          return destination;
+        }
+
+        // Kick authenticated users out of splash
+        if (isSplashRoute) {
+          final destination = isAdmin ? '/admin' : '/';
+          print('   → Redirect to $destination (auth complete)');
+          return destination;
+        }
+
+        // Admin users can only access admin routes
+        if (isAdmin && !isAdminRoute) {
+          print('   → Redirect to /admin (admin user accessing user pages)');
+          return '/admin';
+        }
+
+        // Regular users cannot access admin routes
+        if (!isAdmin && isAdminRoute) {
+          print('   → Redirect to / (regular user accessing admin)');
+          return '/';
+        }
+
+        print('   → Allow navigation');
+        return null;
+      }
+
+      // Fallback: stay on current page
+      print('   → No redirect needed');
       return null;
     },
     routes: [
-      // Loading Screen (for profile loading after auth)
+      // Splash Screen (shown during initialization)
       GoRoute(
-        path: '/loading',
-        name: 'loading',
+        path: '/splash',
+        name: 'splash',
         builder: (context, state) => const Scaffold(
           body: Center(
             child: Column(
@@ -161,7 +114,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 CircularProgressIndicator(),
                 SizedBox(height: 24),
                 Text(
-                  'Memuat data...',
+                  'Memuat...',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,

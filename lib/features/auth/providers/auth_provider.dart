@@ -1,173 +1,124 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rentlens/features/auth/data/repositories/auth_repository.dart';
 import 'package:rentlens/features/auth/domain/models/auth_state.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:rentlens/features/auth/domain/models/user_profile.dart';
 
 /// Auth Repository Provider
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository();
 });
 
-/// Auth State Notifier
+/// Auth State Notifier - Manual Authentication
+/// NO Supabase Auth - uses custom users table with username/password
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthRepository _repository;
-  bool _isSettingErrorState = false;
 
   AuthNotifier(this._repository) : super(AuthState.initial()) {
     _init();
   }
 
-  /// Initialize auth state
-  void _init() {
-    final currentUser = _repository.currentUser;
-    if (currentUser != null) {
-      state = AuthState.authenticated(currentUser);
-    }
-
-    // Listen to auth state changes
-    _repository.authStateChanges.listen((event) {
-      // CRITICAL: Don't override error state from listener
-      // This prevents auth events (like signOut) from clearing error messages
-      if (state.error != null || _isSettingErrorState) {
-        print(
-            '⚠️ AUTH PROVIDER: Skipping auth state change - preserving error state (error: ${state.error}, isSettingError: $_isSettingErrorState)');
-        return;
-      }
-
-      if (event.session != null) {
-        print('✅ AUTH PROVIDER: Auth listener detected active session');
-        state = AuthState.authenticated(event.session!.user);
+  /// Initialize auth state from SharedPreferences
+  Future<void> _init() async {
+    try {
+      final userProfile = await _repository.getCurrentUserProfile();
+      if (userProfile != null) {
+        print('✅ AUTH PROVIDER: Found existing user: ${userProfile.username}');
+        state = AuthState.authenticatedWithProfile(userProfile);
       } else {
-        print('🔓 AUTH PROVIDER: Auth listener detected no session');
+        print('ℹ️ AUTH PROVIDER: No existing user');
         state = AuthState.unauthenticated();
       }
-    });
+    } catch (e) {
+      print('❌ AUTH PROVIDER: Error initializing: $e');
+      state = AuthState.unauthenticated();
+    }
   }
 
-  /// Sign in with email and password
-  Future<void> signInWithEmail({
-    required String email,
+  /// Sign in with username and password
+  Future<void> signInWithUsername({
+    required String username,
     required String password,
   }) async {
     try {
-      print('🔵 AUTH PROVIDER: signInWithEmail called');
+      print('🔵 AUTH PROVIDER: signInWithUsername called');
 
       // Validate inputs
-      if (email.isEmpty || password.isEmpty) {
+      if (username.isEmpty || password.isEmpty) {
         print('❌ AUTH PROVIDER: Empty fields');
-        state = AuthState.error('Please fill in all fields');
+        state = AuthState.error('Harap isi semua field');
         return;
       }
 
-      if (!_isValidEmail(email)) {
-        print('❌ AUTH PROVIDER: Invalid email format');
-        state = AuthState.error('Please enter a valid email address');
+      if (username.length < 3) {
+        print('❌ AUTH PROVIDER: Username too short');
+        state = AuthState.error('Username minimal 3 karakter');
         return;
       }
 
       print('🔄 AUTH PROVIDER: Setting loading state...');
       state = AuthState.loading();
 
-      print('🔄 AUTH PROVIDER: Calling repository signInWithEmail...');
-      final response = await _repository.signInWithEmail(
-        email: email,
+      print('🔄 AUTH PROVIDER: Calling repository signInWithUsername...');
+      final user = await _repository.signInWithUsername(
+        username: username.trim().toLowerCase(),
         password: password,
       );
 
-      print('📦 AUTH PROVIDER: Response received - User: ${response.user?.id}');
-      if (response.user != null && response.session != null) {
-        print(
-            '✅ AUTH PROVIDER: Login successful, authStateChanges listener will update state');
-        // Note: Don't set state here, let the authStateChanges listener handle it
-        // This prevents race condition with the listener
-      } else {
-        print('❌ AUTH PROVIDER: No user or session in response');
-        state = AuthState.error('Failed to sign in');
+      print('📦 AUTH PROVIDER: Login successful - User: ${user.username}');
+
+      // Check if user is banned
+      if (user.isBanned) {
+        print('🚫 AUTH PROVIDER: User is banned!');
+        await _repository.signOut();
+        state = AuthState.error('Akun Anda telah diblokir');
+        return;
       }
+
+      state = AuthState.authenticatedWithProfile(user);
     } catch (e) {
       print('❌ AUTH PROVIDER: Exception caught = ${e.toString()}');
-      print('🔴 AUTH PROVIDER: Clearing session FIRST (before setting error)');
-
-      // CRITICAL FIX: Clear session FIRST to prevent race condition
-      // Set flag to prevent listener from overriding error state
-      _isSettingErrorState = true;
-
-      try {
-        // Clear any existing session synchronously if possible
-        await _repository.signOut();
-        print('✅ AUTH PROVIDER: Session cleared successfully');
-      } catch (signOutError) {
-        print('⚠️ AUTH PROVIDER: Error during signOut: $signOutError');
-        // Continue to set error state even if signOut fails
-      }
-
-      // Now set error state - listener won't override due to flag
-      state = AuthState(
-        user: null,
-        isLoading: false,
-        error: e.toString(),
-      );
-
-      print(
-          '📊 AUTH PROVIDER: Error state set - error: ${state.error}, isAuthenticated: ${state.isAuthenticated}');
-
-      // Reset flag after a small delay to allow state to stabilize
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _isSettingErrorState = false;
-        print('🔓 AUTH PROVIDER: Error state flag cleared');
-      });
+      state = AuthState.error(e.toString());
     }
   }
 
-  /// Sign up with email and password
-  Future<String?> signUpWithEmail({
-    required String email,
+  /// Sign up with username and password
+  Future<String?> signUpWithUsername({
+    required String username,
     required String password,
     required String fullName,
+    String? email,
     String? phoneNumber,
   }) async {
     try {
       // Validate inputs
-      if (email.isEmpty || password.isEmpty || fullName.isEmpty) {
-        state = AuthState.error('Please fill in all required fields');
+      if (username.isEmpty || password.isEmpty || fullName.isEmpty) {
+        state = AuthState.error('Harap isi semua field yang wajib');
         return null;
       }
 
-      if (!_isValidEmail(email)) {
-        state = AuthState.error('Please enter a valid email address');
+      if (username.length < 3) {
+        state = AuthState.error('Username minimal 3 karakter');
         return null;
       }
 
       if (password.length < 6) {
-        state = AuthState.error('Password must be at least 6 characters');
+        state = AuthState.error('Password minimal 6 karakter');
         return null;
       }
 
       state = AuthState.loading();
 
-      final response = await _repository.signUpWithEmail(
-        email: email,
+      final user = await _repository.signUpWithUsername(
+        username: username.trim().toLowerCase(),
         password: password,
-        fullName: fullName,
-        phoneNumber: phoneNumber,
+        fullName: fullName.trim(),
+        email: email?.trim(),
+        phoneNumber: phoneNumber?.trim(),
       );
 
-      if (response.user != null) {
-        // Check if email confirmation is required
-        final session = response.session;
-        if (session != null) {
-          // Auto-confirmed, user can login immediately
-          state = AuthState.authenticated(response.user!);
-          return 'success';
-        } else {
-          // Email confirmation required
-          state = AuthState.unauthenticated();
-          return 'confirmation_required';
-        }
-      } else {
-        state = AuthState.error('Failed to create account');
-        return null;
-      }
+      print('✅ AUTH PROVIDER: Registration successful for: ${user.username}');
+      state = AuthState.authenticatedWithProfile(user);
+      return 'success';
     } catch (e) {
       state = AuthState.error(e.toString());
       return null;
@@ -185,44 +136,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Reset password
-  Future<void> resetPassword({required String email}) async {
-    try {
-      if (email.isEmpty) {
-        state = AuthState.error('Please enter your email address');
-        return;
-      }
-
-      if (!_isValidEmail(email)) {
-        state = AuthState.error('Please enter a valid email address');
-        return;
-      }
-
-      state = AuthState.loading();
-      await _repository.resetPassword(email: email);
-      state = AuthState.unauthenticated();
-    } catch (e) {
-      state = AuthState.error(e.toString());
-    }
-  }
-
   /// Clear error
   void clearError() {
     if (state.error != null) {
       print('🧹 AUTH PROVIDER: Clearing error state');
-      _isSettingErrorState = false;
-      // Create new state without error
-      state = AuthState(
-        user: state.user,
-        isLoading: false,
-        error: null,
-      );
+      state = AuthState.unauthenticated();
     }
   }
 
-  /// Email validation
-  bool _isValidEmail(String email) {
-    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  /// Refresh profile
+  Future<void> refreshProfile() async {
+    try {
+      final userProfile = await _repository.getCurrentUserProfile();
+      if (userProfile != null) {
+        state = AuthState.authenticatedWithProfile(userProfile);
+      }
+    } catch (e) {
+      print('❌ AUTH PROVIDER: Error refreshing profile: $e');
+    }
   }
 }
 
@@ -232,11 +163,14 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(repository);
 });
 
-/// Current User Provider
-final currentUserProvider = Provider<supabase.User?>((ref) {
+/// Current User Provider (returns UserProfile)
+final currentUserProfileProvider = Provider<UserProfile?>((ref) {
   final authState = ref.watch(authProvider);
-  return authState.user;
+  return authState.userProfile;
 });
+
+/// Alias for backwards compatibility
+final currentUserProvider = currentUserProfileProvider;
 
 /// Is Authenticated Provider
 final isAuthenticatedProvider = Provider<bool>((ref) {

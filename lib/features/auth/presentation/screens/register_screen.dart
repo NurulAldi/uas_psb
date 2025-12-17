@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:rentlens/features/auth/domain/models/auth_state.dart';
+import 'package:rentlens/features/auth/presentation/screens/login_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -14,88 +15,73 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _fullNameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
-    _fullNameController.dispose();
+    _usernameController.dispose();
     _emailController.dispose();
-    _phoneController.dispose();
     _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleRegister() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    await ref.read(authControllerProvider.notifier).signUp(
-          email: _emailController.text,
+    // Manual registration (NO Supabase Auth - creates user in users table)
+    await ref.read(authStateProvider.notifier).signUp(
+          username: _usernameController.text,
           password: _passwordController.text,
-          fullName: _fullNameController.text,
-          phoneNumber:
-              _phoneController.text.isNotEmpty ? _phoneController.text : null,
+          fullName: _usernameController.text, // Use username as default
+          email:
+              _emailController.text.isNotEmpty ? _emailController.text : null,
         );
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
+    final authAsync = ref.watch(authStateProvider);
+    final authState = authAsync.value;
 
-    // Listen for email confirmation requirement or errors
-    ref.listen<AsyncValue<supabase.User?>>(
-      authControllerProvider,
+    // Listen to auth state changes for feedback
+    ref.listen<AsyncValue<AuthState>>(
+      authStateProvider,
       (previous, next) {
-        if (next.hasError && mounted) {
-          final error = next.error.toString();
+        final prevState = previous?.value;
+        final nextState = next.value;
 
-          if (error == 'EMAIL_CONFIRMATION_REQUIRED') {
-            // Show dialog for email confirmation
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                icon: const Icon(
-                  Icons.email_outlined,
-                  color: AppColors.info,
-                  size: 64,
-                ),
-                title: const Text('Verifikasi Email Anda'),
-                content: Text(
-                  'Silakan cek email Anda di ${_emailController.text} untuk memverifikasi akun sebelum masuk.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      context.go('/auth/login');
-                    },
-                    child: const Text('Ke Halaman Login'),
-                  ),
-                ],
-              ),
-            );
-          } else {
-            // Show error snackbar
+        // Show success feedback when transitioning to authenticated
+        if (prevState?.status != nextState?.status) {
+          if (nextState?.isAuthenticated == true) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(error),
-                backgroundColor: AppColors.error,
-                duration: const Duration(seconds: 4),
+                content: Text(
+                    'Registrasi berhasil! Selamat datang, ${nextState?.user?.fullName ?? nextState?.user?.username}!'),
+                backgroundColor: AppColors.success,
+                duration: const Duration(seconds: 2),
               ),
             );
+            // Router will automatically handle navigation
           }
+        }
+
+        // Show error feedback
+        if (nextState?.hasError == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(nextState!.error!),
+              backgroundColor: AppColors.error,
+              duration: const Duration(seconds: 4),
+            ),
+          );
         }
       },
     );
 
-    final isLoading = authState.isLoading;
+    final isLoading = authState?.isInitializing ?? false;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -104,7 +90,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: isLoading ? null : () => context.go('/auth/login'),
+          onPressed: isLoading
+              ? null
+              : () {
+                  // Navigate back to login screen
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (context) => const LoginScreen(),
+                    ),
+                  );
+                },
         ),
       ),
       body: SafeArea(
@@ -117,7 +112,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
               // Title
               Text(
-                'Buat Akun',
+                AppStrings.registerTitle,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
@@ -125,7 +120,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Daftar untuk mulai menyewa kamera',
+                AppStrings.registerSubtitle,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -133,18 +128,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
               const SizedBox(height: 32),
 
-              // Full Name
+              // Username (required, PRIMARY identifier)
               TextFormField(
-                controller: _fullNameController,
+                controller: _usernameController,
                 decoration: const InputDecoration(
-                  labelText: 'Nama Lengkap',
-                  hintText: 'Masukkan nama lengkap Anda',
-                  prefixIcon: Icon(Icons.person_outline),
+                  labelText: 'Username',
+                  hintText: 'Masukkan username Anda',
+                  prefixIcon: Icon(Icons.alternate_email),
                 ),
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Nama lengkap wajib diisi';
+                    return 'Username harus diisi';
+                  }
+                  if (value!.length < 3) {
+                    return 'Username minimal 3 karakter';
+                  }
+                  if (value.length > 30) {
+                    return 'Username maksimal 30 karakter';
+                  }
+                  // Only allow alphanumeric and underscore
+                  if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                    return 'Username hanya boleh huruf, angka, dan garis bawah';
                   }
                   return null;
                 },
@@ -152,7 +157,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
               const SizedBox(height: 16),
 
-              // Email
+              // Email (OPTIONAL - no validation needed)
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -162,29 +167,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 keyboardType: TextInputType.emailAddress,
                 enabled: !isLoading,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'Email wajib diisi';
-                  }
-                  if (!value!.contains('@')) {
-                    return 'Masukkan email yang valid';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Phone (optional)
-              TextFormField(
-                controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Nomor Telepon (opsional)',
-                  hintText: 'Masukkan nomor telepon Anda',
-                  prefixIcon: Icon(Icons.phone_outlined),
-                ),
-                keyboardType: TextInputType.phone,
-                enabled: !isLoading,
+                // NO validator - email is completely optional
               ),
 
               const SizedBox(height: 16),
@@ -193,7 +176,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
-                  labelText: 'Kata Sandi',
+                  labelText: AppStrings.password,
                   hintText: 'Buat kata sandi',
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
@@ -211,44 +194,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 enabled: !isLoading,
                 validator: (value) {
                   if (value?.isEmpty ?? true) {
-                    return 'Kata sandi wajib diisi';
+                    return AppStrings.passwordRequired;
                   }
                   if (value!.length < 6) {
-                    return 'Kata sandi minimal 6 karakter';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Confirm Password
-              TextFormField(
-                controller: _confirmPasswordController,
-                decoration: InputDecoration(
-                  labelText: 'Konfirmasi Kata Sandi',
-                  hintText: 'Masukkan ulang kata sandi',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
-                    onPressed: () {
-                      setState(() =>
-                          _obscureConfirmPassword = !_obscureConfirmPassword);
-                    },
-                  ),
-                ),
-                obscureText: _obscureConfirmPassword,
-                enabled: !isLoading,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) {
-                    return 'Konfirmasi kata sandi wajib diisi';
-                  }
-                  if (value != _passwordController.text) {
-                    return 'Kata sandi tidak cocok';
+                    return AppStrings.passwordMinLength;
                   }
                   return null;
                 },
@@ -280,7 +229,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                         )
                       : const Text(
-                          'Daftar',
+                          AppStrings.register,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -298,7 +247,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'atau',
+                      AppStrings.or,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.textSecondary,
                           ),
@@ -315,15 +264,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Sudah punya akun? ',
+                    AppStrings.alreadyHaveAccount,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
                   ),
                   InkWell(
-                    onTap: isLoading ? null : () => context.go('/auth/login'),
+                    onTap: isLoading
+                        ? null
+                        : () {
+                            // Navigate to login screen
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                            );
+                          },
                     child: Text(
-                      'Masuk',
+                      AppStrings.loginNow,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,

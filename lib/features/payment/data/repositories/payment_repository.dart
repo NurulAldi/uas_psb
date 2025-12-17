@@ -22,6 +22,16 @@ class PaymentRepository {
       print('   Amount: $amount');
       print('   Method: ${method.value}');
 
+      // Get current user ID for context
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId == null) {
+        throw Exception('No authenticated user');
+      }
+
+      // Set user context for RLS policies
+      await _supabase
+          .rpc('set_user_context', params: {'user_id': currentUserId});
+
       final paymentData = {
         'booking_id': bookingId,
         'order_id': orderId,
@@ -210,6 +220,9 @@ class PaymentRepository {
   Future<List<Payment>> getUserPayments(String userId) async {
     try {
       print('💳 PAYMENT REPOSITORY: Fetching payments for user: $userId');
+
+      // Set user context for RLS policies
+      await _supabase.rpc('set_user_context', params: {'user_id': userId});
 
       final response = await _supabase
           .from('payments')

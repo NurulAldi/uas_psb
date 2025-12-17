@@ -70,7 +70,7 @@ class AdminRepository {
     int? offset,
   }) async {
     try {
-      dynamic query = _supabase.from('profiles').select();
+      dynamic query = _supabase.from('users').select();
 
       if (isBanned != null) {
         query = query.eq('is_banned', isBanned);
@@ -101,16 +101,117 @@ class AdminRepository {
     required String reason,
   }) async {
     try {
-      await _supabase.from('profiles').update({
-        'is_banned': true,
-        'banned_at': DateTime.now().toIso8601String(),
-        'banned_by': adminId,
-        'ban_reason': reason,
-      }).eq('id', userId);
+      print('═══════════════════════════════════════════');
+      print('🔨 BAN USER OPERATION STARTED');
+      print('═══════════════════════════════════════════');
+      print('📋 Parameters:');
+      print('   User ID: $userId');
+      print('   Admin ID: $adminId');
+      print('   Reason: $reason');
+      print('   Reason length: ${reason.length}');
+      print('───────────────────────────────────────────');
 
-      return true;
-    } catch (e) {
-      print('❌ Error banning user: $e');
+      // Validate inputs
+      if (userId.isEmpty) {
+        print('❌ VALIDATION ERROR: User ID is empty');
+        return false;
+      }
+      if (adminId.isEmpty) {
+        print('❌ VALIDATION ERROR: Admin ID is empty');
+        return false;
+      }
+      if (reason.isEmpty) {
+        print('❌ VALIDATION ERROR: Reason is empty');
+        return false;
+      }
+
+      print('✅ Validation passed');
+      print('📡 Calling RPC function: admin_ban_user');
+
+      // Call SQL function
+      final response = await _supabase.rpc(
+        'admin_ban_user',
+        params: {
+          'p_user_id': userId,
+          'p_admin_id': adminId,
+          'p_reason': reason,
+        },
+      );
+
+      print('───────────────────────────────────────────');
+      print('📥 RPC Response received:');
+      print('   Type: ${response.runtimeType}');
+      print('   Data: $response');
+      print('───────────────────────────────────────────');
+
+      // Handle response
+      if (response == null) {
+        print('❌ ERROR: Response is null');
+        print('   Possible causes:');
+        print('   - Function admin_ban_user does not exist');
+        print('   - Function has wrong signature');
+        print('   - Database connection issue');
+        return false;
+      }
+
+      if (response is Map) {
+        final success = response['success'];
+        final error = response['error'];
+        final message = response['message'];
+
+        print('📊 Response Analysis:');
+        print('   Success: $success');
+        print('   Error: $error');
+        print('   Message: $message');
+
+        if (success == true) {
+          print('✅ BAN SUCCESSFUL!');
+          print('═══════════════════════════════════════════');
+          return true;
+        } else {
+          print('❌ BAN FAILED!');
+          print('   Error message: $error');
+          print('═══════════════════════════════════════════');
+          return false;
+        }
+      } else {
+        print('❌ UNEXPECTED RESPONSE TYPE: ${response.runtimeType}');
+        print('   Expected: Map');
+        print('   Got: $response');
+        print('═══════════════════════════════════════════');
+        return false;
+      }
+    } on PostgrestException catch (e) {
+      print('═══════════════════════════════════════════');
+      print('❌ POSTGREST EXCEPTION');
+      print('═══════════════════════════════════════════');
+      print('📛 Error Details:');
+      print('   Message: ${e.message}');
+      print('   Code: ${e.code}');
+      print('   Details: ${e.details}');
+      print('   Hint: ${e.hint}');
+      print('───────────────────────────────────────────');
+      print('💡 Possible Solutions:');
+      if (e.code == 'PGRST202' || e.message.contains('Could not find')) {
+        print('   → Function admin_ban_user not found');
+        print('   → Run supabase_ADMIN_VIEWS_FUNCTIONS_FIX.sql');
+      } else if (e.code == '42883') {
+        print('   → Function signature mismatch');
+        print('   → Check parameter types (UUID, UUID, TEXT)');
+      } else {
+        print('   → Check database logs');
+        print('   → Verify permissions');
+      }
+      print('═══════════════════════════════════════════');
+      return false;
+    } catch (e, stackTrace) {
+      print('═══════════════════════════════════════════');
+      print('❌ UNEXPECTED EXCEPTION');
+      print('═══════════════════════════════════════════');
+      print('   Error type: ${e.runtimeType}');
+      print('   Message: $e');
+      print('   Stack trace: $stackTrace');
+      print('═══════════════════════════════════════════');
       return false;
     }
   }
@@ -118,16 +219,30 @@ class AdminRepository {
   /// Unban a user
   Future<bool> unbanUser(String userId) async {
     try {
-      await _supabase.from('profiles').update({
-        'is_banned': false,
-        'banned_at': null,
-        'banned_by': null,
-        'ban_reason': null,
-      }).eq('id', userId);
+      print('🔓 Attempting to unban user...');
+      print('   User ID: $userId');
 
-      return true;
+      // Call SQL function
+      final response = await _supabase.rpc(
+        'admin_unban_user',
+        params: {
+          'p_user_id': userId,
+        },
+      );
+
+      print('📥 Response from unban function: $response');
+
+      if (response != null && response['success'] == true) {
+        print('✅ User unbanned successfully!');
+        return true;
+      } else {
+        final errorMsg = response?['error'] ?? 'Unknown error';
+        print('❌ Failed to unban user: $errorMsg');
+        return false;
+      }
     } catch (e) {
-      print('❌ Error unbanning user: $e');
+      print('❌ Exception while unbanning user: $e');
+      print('   Error type: ${e.runtimeType}');
       return false;
     }
   }
@@ -259,13 +374,11 @@ class AdminRepository {
   Future<Map<String, dynamic>> getStatistics() async {
     try {
       // Get counts sequentially (Supabase count syntax)
-      final totalUsers = await _supabase
-          .from('profiles')
-          .select('id')
-          .count(CountOption.exact);
+      final totalUsers =
+          await _supabase.from('users').select('id').count(CountOption.exact);
 
       final bannedUsers = await _supabase
-          .from('profiles')
+          .from('users')
           .select('id')
           .eq('is_banned', true)
           .count(CountOption.exact);

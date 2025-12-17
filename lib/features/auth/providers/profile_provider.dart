@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rentlens/features/auth/data/repositories/profile_repository.dart';
 import 'package:rentlens/features/auth/domain/models/user_profile.dart';
-import 'package:rentlens/features/auth/controllers/auth_controller.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart'
+    as auth_controller;
 
 /// Provider for ProfileRepository
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
@@ -9,20 +10,14 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 });
 
 /// Provider for current user profile
-/// Automatically fetches profile when user is authenticated
-final currentUserProfileProvider = FutureProvider<UserProfile?>((ref) async {
-  // Watch auth state to refetch when user changes
-  final authState = ref.watch(authControllerProvider);
-
-  return authState.maybeWhen(
-    data: (user) async {
-      if (user == null) return null;
-
-      final repository = ref.read(profileRepositoryProvider);
-      return await repository.getCurrentUserProfile();
-    },
-    orElse: () => null,
-  );
+/// Now uses authStateProvider as single source of truth
+/// This is exported from auth_controller.dart for backwards compatibility
+///
+/// DO NOT USE THIS - Use authStateProvider instead
+/// Kept only for backwards compatibility during migration
+@Deprecated('Use authStateProvider instead')
+final currentUserProfileProvider = Provider<AsyncValue<UserProfile?>>((ref) {
+  return ref.watch(auth_controller.currentUserProfileProvider);
 });
 
 /// Provider for profile by ID
@@ -68,8 +63,8 @@ class ProfileUpdateController extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
       print('✅ PROFILE UPDATE: Profile updated successfully');
 
-      // Refresh the profile provider to show updated data
-      _ref.invalidate(currentUserProfileProvider);
+      // Refresh the auth state to show updated data
+      _ref.read(auth_controller.authStateProvider.notifier).refreshProfile();
 
       return true;
     } catch (e, stackTrace) {

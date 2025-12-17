@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 
 /// Zoomable Image Viewer with Pinch to Zoom and Pan
@@ -163,7 +164,7 @@ class _ZoomableImage extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'Failed to load image',
+                  AppStrings.failedToLoadImage,
                   style: TextStyle(color: Colors.white54),
                 ),
               ],

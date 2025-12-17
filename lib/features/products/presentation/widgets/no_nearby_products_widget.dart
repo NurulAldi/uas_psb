@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 
 /// Empty state when no nearby products are found
@@ -41,7 +42,7 @@ class NoNearbyProductsWidget extends StatelessWidget {
 
             // Title
             Text(
-              'No Products Nearby',
+              AppStrings.noNearbyProducts,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -53,7 +54,7 @@ class NoNearbyProductsWidget extends StatelessWidget {
 
             // Description
             Text(
-              'There are no rental cameras available within $currentRadius km of your location.',
+              'Tidak ada kamera rental tersedia dalam $currentRadius km dari lokasi Anda.',
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.textSecondary,
@@ -68,7 +69,7 @@ class NoNearbyProductsWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Try:',
+                  AppStrings.tryText,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -78,15 +79,15 @@ class NoNearbyProductsWidget extends StatelessWidget {
                 const SizedBox(height: 12),
                 _buildSuggestionItem(
                   icon: Icons.zoom_out_map,
-                  text: 'Increasing your search radius',
+                  text: AppStrings.increasingSearchRadius,
                 ),
                 _buildSuggestionItem(
                   icon: Icons.refresh,
-                  text: 'Refreshing to check for new listings',
+                  text: AppStrings.refreshingNewListings,
                 ),
                 _buildSuggestionItem(
                   icon: Icons.schedule,
-                  text: 'Checking back later',
+                  text: AppStrings.checkingBackLater,
                 ),
               ],
             ),
@@ -109,7 +110,7 @@ class NoNearbyProductsWidget extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.zoom_out_map, size: 20),
                 label: Text(
-                  'Increase Radius to $nextRadius km',
+                  '${AppStrings.increaseRadiusTo} $nextRadius km',
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -134,7 +135,7 @@ class NoNearbyProductsWidget extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.refresh, size: 20),
                 label: const Text(
-                  'Refresh',
+                  AppStrings.refresh,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/services/location_service.dart';
 import 'package:rentlens/features/products/data/repositories/product_repository.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
@@ -131,7 +132,7 @@ class LocationAwareProductController
     } catch (e) {
       print('❌ LOCATION-AWARE CONTROLLER: Error checking permission: $e');
       state = state.copyWith(
-        error: 'Failed to check location permission',
+        error: AppStrings.failedToCheckLocationPermission,
       );
     }
   }
@@ -162,7 +163,7 @@ class LocationAwareProductController
     } catch (e) {
       print('❌ LOCATION-AWARE CONTROLLER: Error requesting permission: $e');
       state = state.copyWith(
-        error: 'Failed to request location permission',
+        error: AppStrings.failedToRequestLocationPermission,
         isRequestingPermission: false,
       );
       return false;
@@ -184,7 +185,7 @@ class LocationAwareProductController
       if (position == null || forceRefresh) {
         position = await _locationService.getCurrentLocation();
         if (position == null) {
-          throw Exception('Could not get your location');
+          throw Exception(AppStrings.couldNotGetLocation);
         }
       }
 
@@ -215,7 +216,7 @@ class LocationAwareProductController
 
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to load nearby products: ${e.toString()}',
+        error: '${AppStrings.failedToLoadNearbyProducts}: ${e.toString()}',
       );
     }
   }

@@ -107,15 +107,15 @@ class _BookingListScreenState extends ConsumerState<BookingListScreen> {
                           DropdownMenuItem(
                               value: null, child: Text('Semua Status')),
                           DropdownMenuItem(
-                              value: 'pending', child: Text('Pending')),
+                              value: 'pending', child: Text('Menunggu')),
                           DropdownMenuItem(
-                              value: 'confirmed', child: Text('Confirmed')),
+                              value: 'confirmed', child: Text('Dikonfirmasi')),
                           DropdownMenuItem(
-                              value: 'active', child: Text('Active')),
+                              value: 'active', child: Text('Aktif')),
                           DropdownMenuItem(
-                              value: 'completed', child: Text('Completed')),
+                              value: 'completed', child: Text('Selesai')),
                           DropdownMenuItem(
-                              value: 'cancelled', child: Text('Cancelled')),
+                              value: 'cancelled', child: Text('Dibatalkan')),
                         ],
                       ),
                     ),
@@ -307,7 +307,7 @@ class _BookingCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${booking.numberOfDays} ${booking.numberOfDays > 1 ? 'days' : 'day'}',
+                          '${booking.numberOfDays} hari',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[500],
@@ -329,7 +329,7 @@ class _BookingCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Total Price',
+                        'Total Harga',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
@@ -430,23 +430,23 @@ class _StatusBadge extends StatelessWidget {
     switch (status) {
       case 'pending':
         color = Colors.orange;
-        displayText = 'PENDING';
+        displayText = 'MENUNGGU';
         break;
       case 'confirmed':
         color = Colors.blue;
-        displayText = 'CONFIRMED';
+        displayText = 'DIKONFIRMASI';
         break;
       case 'active':
         color = Colors.green;
-        displayText = 'ACTIVE';
+        displayText = 'AKTIF';
         break;
       case 'completed':
         color = Colors.grey;
-        displayText = 'COMPLETED';
+        displayText = 'SELESAI';
         break;
       case 'cancelled':
         color = Colors.red;
-        displayText = 'CANCELLED';
+        displayText = 'DIBATALKAN';
         break;
       default:
         color = Colors.grey;

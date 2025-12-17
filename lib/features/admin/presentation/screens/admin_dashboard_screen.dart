@@ -77,31 +77,27 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profileAsync = ref.watch(currentUserProfileProvider);
+    final authAsync = ref.watch(authStateProvider);
+    final profile = authAsync.value?.user;
 
-    return profileAsync.when(
-      data: (profile) {
-        // Double check if user is actually admin
-        if (profile?.role != 'admin') {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              context.go('/');
-            }
-          });
-          return const Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.block, size: 64, color: Colors.red),
-                  SizedBox(height: 16),
-                  Text('Akses Ditolak - Hanya untuk Admin'),
-                ],
-              ),
-            ),
-          );
-        }
+    // Double check if user is actually admin
+    if (profile?.role != 'admin') {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.block, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Text('Akses Ditolak - Hanya untuk Admin'),
+            ],
+          ),
+        ),
+      );
+    }
 
+    return authAsync.when(
+      data: (authState) {
         return Scaffold(
           appBar: AppBar(
             title: const Text('Admin Dashboard - RentLens'),
@@ -182,11 +178,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               const Icon(Icons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
               Text('Error: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => context.go('/auth/login'),
-                child: const Text('Kembali ke Login'),
-              ),
             ],
           ),
         ),

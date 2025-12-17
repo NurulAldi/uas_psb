@@ -4,7 +4,7 @@ import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/models/report.dart';
 import 'package:rentlens/features/admin/data/admin_repository.dart';
 import 'package:rentlens/features/admin/providers/admin_provider.dart';
-import 'package:rentlens/features/auth/providers/current_user_provider.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 
 class ReportDialog extends ConsumerStatefulWidget {
   final ReportType reportType;

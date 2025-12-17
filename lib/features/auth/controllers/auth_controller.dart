@@ -2,307 +2,265 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rentlens/features/auth/data/repositories/auth_repository.dart';
 import 'package:rentlens/features/auth/providers/auth_repository_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
+import 'package:rentlens/features/auth/domain/models/auth_state.dart';
+import 'package:rentlens/features/auth/domain/models/user_profile.dart';
 
-/// Auth Controller using AsyncValue for reactive state management
-/// CRITICAL: State updates ONLY from auth stream listener
-class AuthController extends StateNotifier<AsyncValue<supabase.User?>> {
+/// Auth Controller using consolidated AuthState
+/// MANUAL AUTH - NO Supabase Auth, uses custom users table
+/// Single source of truth for authentication state
+class AuthController extends StateNotifier<AsyncValue<AuthState>> {
   final AuthRepository _repository;
-  StreamSubscription<supabase.AuthState>? _authSubscription;
 
-  AuthController(this._repository) : super(const AsyncValue.loading()) {
-    _initializeAuth();
+  AuthController(this._repository)
+      : super(const AsyncValue.data(AuthState.initializing())) {
+    // Auto-initialize on creation
+    initialize();
   }
 
-  /// Expose auth state changes stream for router refresh
-  Stream<supabase.AuthState> get authStateChanges =>
-      _repository.authStateChanges;
+  /// Initialize: Check if user is logged in from SharedPreferences
+  /// This is called on app startup
+  Future<void> initialize() async {
+    print('🔵 AUTH CONTROLLER: Initializing authentication...');
 
-  /// Initialize: Check current user + start listening
-  void _initializeAuth() {
-    print('🔵 AUTH CONTROLLER: Initializing...');
+    // Set initializing state
+    state = const AsyncValue.data(AuthState.initializing());
 
-    final currentUser = _repository.currentUser;
-    if (currentUser != null) {
-      print('✅ AUTH CONTROLLER: Found existing user: ${currentUser.email}');
-      state = AsyncValue.data(currentUser);
-    } else {
-      print('ℹ️ AUTH CONTROLLER: No existing user');
-      state = const AsyncValue.data(null);
+    try {
+      final userProfile = await _repository.getCurrentUserProfile();
+
+      if (userProfile != null) {
+        print(
+            '✅ AUTH CONTROLLER: Found existing session for: ${userProfile.username}');
+        state = AsyncValue.data(AuthState.authenticated(userProfile));
+      } else {
+        print('ℹ️ AUTH CONTROLLER: No existing session found');
+        state = const AsyncValue.data(AuthState.unauthenticated());
+      }
+    } catch (e, stackTrace) {
+      print('❌ AUTH CONTROLLER: Error during initialization: $e');
+      state = AsyncValue.data(
+          AuthState.unauthenticated('Failed to initialize: $e'));
     }
-
-    _listenToAuthChanges();
   }
 
-  /// CRITICAL: Only source of state updates from Supabase
-  void _listenToAuthChanges() {
-    print('👂 AUTH CONTROLLER: Starting to listen to auth changes');
-
-    _authSubscription = _repository.authStateChanges.listen(
-      (event) {
-        if (event.session != null) {
-          print('✅ AUTH LISTENER: User authenticated');
-          print('   User: ${event.session!.user.email}');
-          // Always update to authenticated state
-          state = AsyncValue.data(event.session!.user);
-        } else {
-          print('🔓 AUTH LISTENER: User signed out');
-          // Always clear to unauthenticated state
-          state = const AsyncValue.data(null);
-        }
-      },
-      onError: (error) {
-        print('❌ AUTH LISTENER: Stream error: $error');
-        state = AsyncValue.error(error, StackTrace.current);
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    print('🧹 AUTH CONTROLLER: Disposing and cancelling subscription');
-    _authSubscription?.cancel();
-    super.dispose();
-  }
-
-  /// Sign in with email and password
-  /// NO manual state update - listener handles it
-  Future<void> signIn(String email, String password) async {
-    print('\n🔵 AUTH CONTROLLER: signIn called');
+  /// Sign in with username and password
+  /// Uses manual authentication (NO Supabase Auth) - validates against users table
+  Future<void> signIn(String username, String password) async {
+    print('\n🔵 AUTH CONTROLLER: signIn called for username: $username');
 
     // Trim inputs
-    final trimmedEmail = email.trim();
+    final trimmedUsername = username.trim().toLowerCase();
     final trimmedPassword = password.trim();
 
     // Basic validation
-    if (trimmedEmail.isEmpty || trimmedPassword.isEmpty) {
-      state = AsyncValue.error(
-        'Please fill in all fields',
-        StackTrace.current,
+    if (trimmedUsername.isEmpty || trimmedPassword.isEmpty) {
+      state = AsyncValue.data(
+        const AuthState.unauthenticated('Harap isi semua field'),
       );
       return;
     }
 
-    if (!trimmedEmail.contains('@')) {
-      state = AsyncValue.error(
-        'Please enter a valid email',
-        StackTrace.current,
+    if (trimmedUsername.length < 3) {
+      state = AsyncValue.data(
+        const AuthState.unauthenticated('Username minimal 3 karakter'),
       );
       return;
     }
 
-    // Set loading state
+    // IMPORTANT: Use AsyncValue.loading instead of changing AuthState
+    // This shows loading indicator WITHOUT triggering router redirect
     state = const AsyncValue.loading();
-    print('🔄 AUTH CONTROLLER: Loading...');
+    print('🔄 AUTH CONTROLLER: Authenticating...');
 
     try {
-      // Call repository
-      final response = await _repository.signInWithEmail(
-        email: trimmedEmail,
+      // Call repository with manual auth (validates against users table)
+      final user = await _repository.signInWithUsername(
+        username: trimmedUsername,
         password: trimmedPassword,
       );
 
-      print('✅ AUTH CONTROLLER: Repository call successful');
+      print('✅ AUTH CONTROLLER: Login successful for: ${user.username}');
 
-      // CRITICAL: Check if user is banned
-      if (response.user != null) {
-        final userId = response.user!.id;
-        print('🔒 AUTH CONTROLLER: Checking ban status...');
-
-        final isBanned = await _repository.checkBanStatus(userId);
-
-        if (isBanned) {
-          print('🚫 AUTH CONTROLLER: User is banned! Signing out...');
-
-          // Immediately sign out the banned user
-          await _repository.signOut();
-
-          // Throw special error for banned users
-          throw 'ACCOUNT_BANNED';
-        }
-
-        print('✅ AUTH CONTROLLER: User is not banned, proceeding...');
+      // Check if user is banned
+      if (user.isBanned) {
+        print('🚫 AUTH CONTROLLER: User is banned!');
+        await _repository.signOut();
+        state = AsyncValue.data(
+          const AuthState.unauthenticated('ACCOUNT_BANNED'),
+        );
+        return;
       }
 
-      print('   Listener will update state automatically');
-
-      // NO manual state update here!
-      // Listener will handle it when auth state changes
+      // Set authenticated state with complete user profile
+      state = AsyncValue.data(AuthState.authenticated(user));
     } catch (e, stackTrace) {
       print('❌ AUTH CONTROLLER: Sign in failed: $e');
-      state = AsyncValue.error(e.toString(), stackTrace);
+      // Set error state that shows inline error WITHOUT redirect
+      // Stay unauthenticated but with error message
+      state = AsyncValue.data(AuthState.unauthenticated(e.toString()));
     }
   }
 
-  /// Sign up with email and password
-  /// NO manual state update - listener handles it
+  /// Sign up with username and password
+  /// Uses manual authentication (NO Supabase Auth) - creates user in users table
   Future<void> signUp({
-    required String email,
+    required String username,
     required String password,
     required String fullName,
+    String? email,
     String? phoneNumber,
   }) async {
-    print('\n🔵 AUTH CONTROLLER: signUp called');
+    print('\n🔵 AUTH CONTROLLER: signUp called for username: $username');
 
     // Trim inputs
-    final trimmedEmail = email.trim();
+    final trimmedUsername = username.trim().toLowerCase();
     final trimmedPassword = password.trim();
     final trimmedFullName = fullName.trim();
+    final trimmedEmail = email?.trim();
     final trimmedPhone = phoneNumber?.trim();
 
     // Basic validation
-    if (trimmedEmail.isEmpty ||
+    if (trimmedUsername.isEmpty ||
         trimmedPassword.isEmpty ||
         trimmedFullName.isEmpty) {
-      state = AsyncValue.error(
-        'Please fill in all required fields',
-        StackTrace.current,
+      state = AsyncValue.data(
+        const AuthState.unauthenticated('Harap isi semua field yang wajib'),
       );
       return;
     }
 
-    if (!trimmedEmail.contains('@')) {
-      state = AsyncValue.error(
-        'Please enter a valid email',
-        StackTrace.current,
+    if (trimmedUsername.length < 3) {
+      state = AsyncValue.data(
+        const AuthState.unauthenticated('Username minimal 3 karakter'),
       );
       return;
     }
 
     if (trimmedPassword.length < 6) {
-      state = AsyncValue.error(
-        'Password must be at least 6 characters',
-        StackTrace.current,
+      state = AsyncValue.data(
+        const AuthState.unauthenticated('Password minimal 6 karakter'),
       );
       return;
     }
 
-    // Set loading state
-    state = const AsyncValue.loading();
-    print('🔄 AUTH CONTROLLER: Loading...');
+    // Set initializing state (shows loading in UI)
+    state = const AsyncValue.data(AuthState.initializing());
+    print('🔄 AUTH CONTROLLER: Registering user...');
 
     try {
-      // Call repository
-      final response = await _repository.signUpWithEmail(
-        email: trimmedEmail,
+      // Call repository with manual auth (creates user in users table)
+      final user = await _repository.signUpWithUsername(
+        username: trimmedUsername,
         password: trimmedPassword,
         fullName: trimmedFullName,
+        email: trimmedEmail,
         phoneNumber: trimmedPhone,
       );
 
-      print('✅ AUTH CONTROLLER: Repository call successful');
+      print('✅ AUTH CONTROLLER: Registration successful for: ${user.username}');
 
-      // Check if email confirmation is required
-      if (response.user != null && response.session == null) {
-        print('⚠️ AUTH CONTROLLER: Email confirmation required');
-        // Set special error state for email confirmation
-        state = AsyncValue.error(
-          'EMAIL_CONFIRMATION_REQUIRED',
-          StackTrace.current,
-        );
-        return;
-      }
-
-      print('   Listener will update state automatically');
-      // NO manual state update here!
-      // Listener will handle it when auth state changes
+      // Set authenticated state with complete user profile
+      state = AsyncValue.data(AuthState.authenticated(user));
     } catch (e, stackTrace) {
       print('❌ AUTH CONTROLLER: Sign up failed: $e');
-      state = AsyncValue.error(e.toString(), stackTrace);
+      state = AsyncValue.data(AuthState.unauthenticated(e.toString()));
     }
   }
 
-  /// Sign out
-  /// NO manual state update - listener handles it
+  /// Sign out - clear local session
   Future<void> signOut() async {
     print('\n🔵 AUTH CONTROLLER: signOut called');
 
-    state = const AsyncValue.loading();
-    print('🔄 AUTH CONTROLLER: Loading...');
+    // Set initializing state briefly
+    state = const AsyncValue.data(AuthState.initializing());
+    print('🔄 AUTH CONTROLLER: Clearing session...');
 
     try {
-      // Call repository
       await _repository.signOut();
+      print('✅ AUTH CONTROLLER: Sign out successful');
 
-      print('✅ AUTH CONTROLLER: Repository call successful');
-      print('   Listener will update state automatically');
-
-      // NO manual state update here!
-      // Listener will handle it when auth state changes
+      // Set unauthenticated state
+      state = const AsyncValue.data(AuthState.unauthenticated());
     } catch (e, stackTrace) {
       print('❌ AUTH CONTROLLER: Sign out failed: $e');
-      state = AsyncValue.error(e.toString(), stackTrace);
-    }
-  }
-
-  /// Reset password
-  Future<void> resetPassword(String email) async {
-    print('\n🔵 AUTH CONTROLLER: resetPassword called');
-
-    final trimmedEmail = email.trim();
-
-    if (trimmedEmail.isEmpty) {
-      state = AsyncValue.error(
-        'Please enter your email',
-        StackTrace.current,
-      );
-      return;
-    }
-
-    if (!trimmedEmail.contains('@')) {
-      state = AsyncValue.error(
-        'Please enter a valid email',
-        StackTrace.current,
-      );
-      return;
-    }
-
-    state = const AsyncValue.loading();
-
-    try {
-      await _repository.resetPassword(email: trimmedEmail);
-      print('✅ AUTH CONTROLLER: Password reset email sent');
-      state = const AsyncValue.data(null);
-    } catch (e, stackTrace) {
-      print('❌ AUTH CONTROLLER: Reset password failed: $e');
-      state = AsyncValue.error(e.toString(), stackTrace);
+      // Even if signout fails, clear the state
+      state = const AsyncValue.data(AuthState.unauthenticated());
     }
   }
 
   /// Clear error state
   void clearError() {
-    if (state.hasError) {
+    final currentState = state.value;
+    if (currentState?.hasError == true) {
       print('🧹 AUTH CONTROLLER: Clearing error state');
-      state = const AsyncValue.data(null);
+      state = const AsyncValue.data(AuthState.unauthenticated());
+    }
+  }
+
+  /// Refresh current user profile from database
+  Future<void> refreshProfile() async {
+    try {
+      print('🔄 AUTH CONTROLLER: Refreshing user profile...');
+      final userProfile = await _repository.getCurrentUserProfile();
+
+      if (userProfile != null) {
+        state = AsyncValue.data(AuthState.authenticated(userProfile));
+        print(
+            '✅ AUTH CONTROLLER: Profile refreshed for: ${userProfile.username}');
+      } else {
+        state = const AsyncValue.data(AuthState.unauthenticated());
+        print('⚠️ AUTH CONTROLLER: No user found during refresh');
+      }
+    } catch (e) {
+      print('❌ AUTH CONTROLLER: Error refreshing profile: $e');
+      // Don't change state on refresh error, keep current state
     }
   }
 }
 
 /// Auth Controller Provider
-final authControllerProvider =
-    StateNotifierProvider<AuthController, AsyncValue<supabase.User?>>((ref) {
+/// Single source of truth for authentication state
+final authStateProvider =
+    StateNotifierProvider<AuthController, AsyncValue<AuthState>>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return AuthController(repository);
 });
 
+/// Legacy provider name for backwards compatibility
+final authControllerProvider = authStateProvider;
+
 /// Convenience providers for easier access
-final currentUserProvider = Provider<supabase.User?>((ref) {
-  final authState = ref.watch(authControllerProvider);
-  return authState.maybeWhen(
-    data: (user) => user,
-    orElse: () => null,
-  );
+final currentUserProvider = Provider<UserProfile?>((ref) {
+  final authState = ref.watch(authStateProvider);
+  return authState.value?.user;
 });
 
 final isAuthenticatedProvider = Provider<bool>((ref) {
-  final authState = ref.watch(authControllerProvider);
-  return authState.maybeWhen(
-    data: (user) => user != null,
-    orElse: () => false,
-  );
+  final authState = ref.watch(authStateProvider);
+  return authState.value?.isAuthenticated ?? false;
 });
 
-final isLoadingProvider = Provider<bool>((ref) {
-  final authState = ref.watch(authControllerProvider);
-  return authState.isLoading;
+final isInitializingAuthProvider = Provider<bool>((ref) {
+  final authState = ref.watch(authStateProvider);
+  return authState.value?.isInitializing ?? true;
+});
+
+/// Backwards compatibility provider for currentUserProfileProvider
+/// This replaces the old FutureProvider pattern
+final currentUserProfileProvider = Provider<AsyncValue<UserProfile?>>((ref) {
+  final authState = ref.watch(authStateProvider);
+
+  return authState.when(
+    data: (state) {
+      if (state.isInitializing) {
+        return const AsyncValue.loading();
+      } else if (state.isAuthenticated) {
+        return AsyncValue.data(state.user);
+      } else {
+        return const AsyncValue.data(null);
+      }
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (e, st) => AsyncValue.error(e, st),
+  );
 });

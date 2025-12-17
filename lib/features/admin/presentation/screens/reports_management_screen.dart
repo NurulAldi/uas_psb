@@ -5,7 +5,7 @@ import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/models/report.dart';
 import 'package:rentlens/features/admin/data/admin_repository.dart';
 import 'package:rentlens/features/admin/providers/admin_provider.dart';
-import 'package:rentlens/features/admin/providers/current_admin_provider.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 
 final reportsProvider =
     FutureProvider.autoDispose<List<ReportWithDetails>>((ref) async {
@@ -97,14 +97,24 @@ class _ReportsManagementScreenState
     );
 
     if (selectedStatus != null && mounted) {
-      final admin = ref.read(currentAdminProvider);
-      if (admin == null) return;
+      final currentUser = ref.read(currentUserProvider);
+      if (currentUser == null || currentUser.role != 'admin') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Admin access required'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
 
       final adminRepo = ref.read(adminRepositoryProvider);
       final success = await adminRepo.updateReportStatus(
         reportId: report.id,
         status: selectedStatus,
-        adminId: admin.id,
+        adminId: currentUser.id,
         adminNotes: notesController.text.trim(),
       );
 
@@ -112,8 +122,7 @@ class _ReportsManagementScreenState
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content:
-                    Text('Report ${selectedStatus.label.toLowerCase()}')),
+                content: Text('Report ${selectedStatus.label.toLowerCase()}')),
           );
           ref.invalidate(reportsProvider);
           ref.invalidate(pendingReportsProvider);
@@ -273,10 +282,11 @@ class _ReportsManagementScreenState
                   _buildInfoRow('Description', report.description!),
                 const Divider(),
                 if (report.reportType == ReportType.user) ...[
-                  _buildInfoRow('Reported User', report.reportedUserName ?? 'N/A'),
-                  _buildInfoRow('User Email', report.reportedUserEmail ?? 'N/A'),
                   _buildInfoRow(
-                      'Is Banned',
+                      'Reported User', report.reportedUserName ?? 'N/A'),
+                  _buildInfoRow(
+                      'User Email', report.reportedUserEmail ?? 'N/A'),
+                  _buildInfoRow('Is Banned',
                       report.reportedUserIsBanned == true ? 'Yes' : 'No',
                       valueColor: report.reportedUserIsBanned == true
                           ? AppColors.error
@@ -289,8 +299,10 @@ class _ReportsManagementScreenState
                 _buildInfoRow('Created At',
                     DateFormat('dd MMM yyyy HH:mm').format(report.createdAt)),
                 if (report.reviewedAt != null)
-                  _buildInfoRow('Reviewed At',
-                      DateFormat('dd MMM yyyy HH:mm').format(report.reviewedAt!)),
+                  _buildInfoRow(
+                      'Reviewed At',
+                      DateFormat('dd MMM yyyy HH:mm')
+                          .format(report.reviewedAt!)),
                 if (report.reviewedByName != null)
                   _buildInfoRow('Reviewed By', report.reviewedByName!),
                 if (report.adminNotes != null)

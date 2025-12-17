@@ -1,5 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 /// Service to handle all location-related operations
 /// Including GPS location, distance calculation, and geocoding
@@ -141,10 +143,39 @@ class LocationService {
     required double longitude,
   }) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        latitude,
-        longitude,
-      );
+      // Validate coordinates before geocoding
+      if (!isValidCoordinate(latitude: latitude, longitude: longitude)) {
+        print(
+            '❌ Invalid coordinates for geocoding: lat=$latitude, lon=$longitude');
+        return 'Invalid coordinates';
+      }
+
+      // Check for NaN or infinite values
+      if (latitude.isNaN ||
+          longitude.isNaN ||
+          latitude.isInfinite ||
+          longitude.isInfinite) {
+        print('❌ NaN/Infinite coordinates: lat=$latitude, lon=$longitude');
+        return 'Invalid coordinates';
+      }
+
+      print(
+          '📍 Attempting reverse geocoding for: lat=$latitude, lon=$longitude');
+
+      List<Placemark> placemarks;
+      try {
+        placemarks = await placemarkFromCoordinates(
+          latitude,
+          longitude,
+        );
+      } catch (geocodingError, st) {
+        print('⚠️ Platform geocoding failed: $geocodingError');
+        print('Stack trace: $st');
+        print('🔄 Falling back to HTTP geocoding...');
+
+        // Fallback to HTTP-based geocoding
+        return await _fallbackReverseGeocode(latitude, longitude);
+      }
 
       if (placemarks.isEmpty) {
         return 'Unknown location';
@@ -171,8 +202,9 @@ class LocationService {
       }
 
       return parts.isEmpty ? 'Unknown location' : parts.join(', ');
-    } catch (e) {
+    } catch (e, st) {
       print('❌ Error reverse geocoding: $e');
+      print('Stack trace: $st');
       return 'Location unavailable';
     }
   }
@@ -184,10 +216,39 @@ class LocationService {
     required double longitude,
   }) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        latitude,
-        longitude,
-      );
+      // Validate coordinates before geocoding
+      if (!isValidCoordinate(latitude: latitude, longitude: longitude)) {
+        print(
+            '❌ Invalid coordinates for city geocoding: lat=$latitude, lon=$longitude');
+        return 'Unknown';
+      }
+
+      // Check for NaN or infinite values
+      if (latitude.isNaN ||
+          longitude.isNaN ||
+          latitude.isInfinite ||
+          longitude.isInfinite) {
+        print(
+            '❌ NaN/Infinite coordinates for city: lat=$latitude, lon=$longitude');
+        return 'Unknown';
+      }
+
+      print('🏙️ Attempting city geocoding for: lat=$latitude, lon=$longitude');
+
+      List<Placemark> placemarks;
+      try {
+        placemarks = await placemarkFromCoordinates(
+          latitude,
+          longitude,
+        );
+      } catch (geocodingError, st) {
+        print('⚠️ Platform city geocoding failed: $geocodingError');
+        print('Stack trace: $st');
+        print('🔄 Falling back to HTTP city geocoding...');
+
+        // Fallback to HTTP-based geocoding for city
+        return await _fallbackCityGeocode(latitude, longitude);
+      }
 
       if (placemarks.isEmpty) {
         return 'Unknown';
@@ -205,24 +266,29 @@ class LocationService {
       String? cityName;
 
       // 1. Try locality (city name like "Padang", "Jakarta")
-      if (place.locality != null &&
-          place.locality!.isNotEmpty &&
-          place.locality!.toLowerCase() != 'unknown') {
-        cityName = place.locality!;
+      final locality = place.locality;
+      if (locality != null &&
+          locality.isNotEmpty &&
+          locality.toLowerCase() != 'unknown') {
+        cityName = locality;
       }
       // 2. Try subAdministrativeArea (district/kabupaten)
-      else if (place.subAdministrativeArea != null &&
-          place.subAdministrativeArea!.isNotEmpty) {
-        cityName = place.subAdministrativeArea!;
-        // Shorten "Kabupaten" to "Kab."
-        if (cityName.toLowerCase().startsWith('kabupaten ')) {
-          cityName = 'Kab. ${cityName.substring(10)}';
+      else {
+        final subAdminArea = place.subAdministrativeArea;
+        if (subAdminArea != null && subAdminArea.isNotEmpty) {
+          cityName = subAdminArea;
+          // Shorten "Kabupaten" to "Kab."
+          if (cityName.toLowerCase().startsWith('kabupaten ')) {
+            cityName = 'Kab. ${cityName.substring(10)}';
+          }
         }
-      }
-      // 3. Fallback to province
-      else if (place.administrativeArea != null &&
-          place.administrativeArea!.isNotEmpty) {
-        cityName = place.administrativeArea!;
+        // 3. Fallback to province
+        else {
+          final adminArea = place.administrativeArea;
+          if (adminArea != null && adminArea.isNotEmpty) {
+            cityName = adminArea;
+          }
+        }
       }
 
       if (cityName == null || cityName.isEmpty) {
@@ -231,8 +297,9 @@ class LocationService {
 
       print('✅ City name: $cityName');
       return cityName;
-    } catch (e) {
+    } catch (e, st) {
       print('❌ Error getting city: $e');
+      print('Stack trace: $st');
       return 'Unknown';
     }
   }
@@ -296,9 +363,88 @@ class LocationService {
     return (distanceKm * 1000) <= thresholdMeters;
   }
 
-  /// Open device location settings
-  Future<void> openLocationSettings() async {
-    await Geolocator.openLocationSettings();
+  /// Fallback HTTP-based reverse geocoding using Nominatim (OpenStreetMap)
+  Future<String> _fallbackReverseGeocode(
+      double latitude, double longitude) async {
+    try {
+      final uri = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$latitude&lon=$longitude&addressdetails=1&zoom=18');
+
+      print('🌐 HTTP geocoding request: $uri');
+
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'RentLens/1.0 (contact@rentlens.app)',
+      });
+
+      if (response.statusCode != 200) {
+        print('❌ HTTP geocoding failed with status: ${response.statusCode}');
+        return 'Location unavailable';
+      }
+
+      final data = jsonDecode(response.body);
+      final displayName = data['display_name'] as String?;
+
+      if (displayName != null && displayName.isNotEmpty) {
+        print('✅ HTTP geocoding success: $displayName');
+        return displayName;
+      } else {
+        print('❌ HTTP geocoding returned empty result');
+        return 'Location unavailable';
+      }
+    } catch (httpError, st) {
+      print('❌ HTTP geocoding fallback failed: $httpError');
+      print('Stack trace: $st');
+      return 'Location unavailable';
+    }
+  }
+
+  /// Fallback HTTP-based city geocoding using Nominatim (OpenStreetMap)
+  Future<String> _fallbackCityGeocode(double latitude, double longitude) async {
+    try {
+      final uri = Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$latitude&lon=$longitude&addressdetails=1&zoom=10');
+
+      print('🌐 HTTP city geocoding request: $uri');
+
+      final response = await http.get(uri, headers: {
+        'User-Agent': 'RentLens/1.0 (contact@rentlens.app)',
+      });
+
+      if (response.statusCode != 200) {
+        print(
+            '❌ HTTP city geocoding failed with status: ${response.statusCode}');
+        return 'Unknown';
+      }
+
+      final data = jsonDecode(response.body);
+      final address = data['address'] as Map<String, dynamic>?;
+
+      if (address != null) {
+        // Try to extract city name from various possible fields
+        String? city = address['city'] ??
+            address['town'] ??
+            address['village'] ??
+            address['county'] ??
+            address['state'] ??
+            address['province'];
+
+        if (city != null && city.isNotEmpty) {
+          // Handle Indonesian administrative divisions
+          if (city.toLowerCase().startsWith('kabupaten ')) {
+            city = 'Kab. ${city.substring(10)}';
+          }
+          print('✅ HTTP city geocoding success: $city');
+          return city;
+        }
+      }
+
+      print('❌ HTTP city geocoding returned no city data');
+      return 'Unknown';
+    } catch (httpError, st) {
+      print('❌ HTTP city geocoding fallback failed: $httpError');
+      print('Stack trace: $st');
+      return 'Unknown';
+    }
   }
 
   /// Open app settings (for permission management)

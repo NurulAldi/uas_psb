@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/products/providers/product_provider.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
@@ -17,7 +18,7 @@ class ProductListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(category ?? 'All Products'),
+        title: Text(category ?? AppStrings.allProducts),
         elevation: 0,
       ),
       body: productsAsync.when(
@@ -31,7 +32,7 @@ class ProductListScreen extends ConsumerWidget {
                       size: 64, color: AppColors.textTertiary),
                   const SizedBox(height: 16),
                   Text(
-                    'No products found',
+                    AppStrings.noProducts,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -39,8 +40,8 @@ class ProductListScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Text(
                     category != null
-                        ? 'No products in $category category'
-                        : 'No products available yet',
+                        ? '${AppStrings.noProductsInCategory} $category'
+                        : AppStrings.noProductsAvailableYet,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textTertiary,
                         ),
@@ -81,7 +82,7 @@ class ProductListScreen extends ConsumerWidget {
                 Icon(Icons.error_outline, size: 64, color: AppColors.error),
                 const SizedBox(height: 16),
                 Text(
-                  'Failed to load products',
+                  AppStrings.failedToLoadProducts,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: AppColors.error,
                       ),
@@ -192,7 +193,7 @@ class _ProductCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
-                            'Unavailable',
+                            AppStrings.unavailable,
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: Colors.white,

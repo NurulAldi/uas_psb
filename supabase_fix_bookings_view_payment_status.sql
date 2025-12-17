@@ -58,8 +58,8 @@ SELECT
   
 FROM bookings b
 JOIN products p ON b.product_id = p.id
-JOIN profiles renter ON b.user_id = renter.id
-LEFT JOIN profiles owner ON b.owner_id = owner.id;
+JOIN users renter ON b.user_id = renter.id
+LEFT JOIN users owner ON b.owner_id = owner.id;
 
 COMMENT ON VIEW bookings_with_details IS 'Complete booking information with product, renter, owner details, and payment status';
 

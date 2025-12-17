@@ -294,7 +294,7 @@ class _BookingCard extends ConsumerWidget {
                     child: _buildInfoColumn(
                       context,
                       'Duration',
-                      '${bookingWithProduct.numberOfDays} days',
+                      '${bookingWithProduct.numberOfDays} hari',
                     ),
                   ),
                 ],

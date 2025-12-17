@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rentlens/core/config/supabase_config.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/auth/domain/models/user_profile.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/auth/data/services/avatar_upload_service.dart';
@@ -14,15 +15,15 @@ import 'package:rentlens/core/services/location_service.dart';
 
 /// **Edit Profile Page - Complete Implementation**
 ///
-/// **Editable Fields (Based on Database Schema & RLS Policies):**
-/// - ✅ Full Name (TEXT) - Required, min 3 chars
+/// **Editable Fields (Based on Database Schema):**
+/// - ✅ Full Name (TEXT) - Optional
 /// - ✅ Phone Number (TEXT) - Optional, min 10 digits
 /// - ✅ Avatar/Profile Picture (TEXT URL) - Optional
 ///
-/// **Read-Only Fields (System Managed/Protected):**
-/// - 🔒 Email (from auth.users, immutable)
-/// - 🔒 Role (admin-only permission via RLS)
-/// - 🔒 Is Banned (admin-only permission via RLS)
+/// **Read-Only Fields (System Managed):**
+/// - 🔒 Username (unique identifier, cannot be changed)
+/// - 🔒 Role (admin-only, set manually in database)
+/// - 🔒 Is Banned (admin-only permission)
 /// - 🔒 Created At / Updated At (auto-managed by trigger)
 ///
 /// **UI/UX Best Practices Implemented:**
@@ -114,11 +115,13 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange),
-            SizedBox(width: 12),
-            Text('Buang Perubahan?'),
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            const SizedBox(width: 12),
+            Flexible(
+              child: const Text('Buang Perubahan?'),
+            ),
           ],
         ),
         content: const Text(
@@ -249,6 +252,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       }
 
       // Get address and city from coordinates
+      print(
+          '📍 Got position: lat=${position.latitude}, lon=${position.longitude}, accuracy=${position.accuracy}m');
+
       final address = await _locationService.getAddressFromCoordinates(
         latitude: position.latitude,
         longitude: position.longitude,
@@ -306,7 +312,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       String? newAvatarUrl;
 
       if (_selectedImageFile != null) {
-        final userId = SupabaseConfig.currentUserId;
+        final userId = await SupabaseConfig.currentUserId;
         if (userId == null) throw Exception('User not authenticated');
 
         if (widget.profile.avatarUrl != null &&
@@ -474,14 +480,15 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
           ),
           const SizedBox(height: 16),
           Text(
-            widget.profile.fullName ?? 'User',
+            widget.profile
+                .displayName, // Fallback ke username jika fullName kosong
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 4),
           Text(
-            widget.profile.email,
+            widget.profile.email ?? widget.profile.username,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -580,29 +587,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       ),
                       const SizedBox(height: 24),
                       TextFormField(
-                        initialValue: widget.profile.email,
-                        decoration: InputDecoration(
-                          labelText: 'Alamat Email',
-                          prefixIcon: const Icon(Icons.email_outlined),
-                          suffixIcon: Tooltip(
-                            message: 'Email tidak dapat diubah',
-                            child: Icon(Icons.lock_outline,
-                                size: 20, color: Colors.grey[400]),
-                          ),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          filled: true,
-                          fillColor: Colors.grey[50],
-                          helperText: 'Email dikelola oleh akun Anda',
-                        ),
-                        enabled: false,
-                        style: TextStyle(color: Colors.grey[700]),
-                      ),
-                      const SizedBox(height: 20),
-                      TextFormField(
                         controller: _fullNameController,
                         decoration: InputDecoration(
-                          labelText: 'Nama Lengkap *',
+                          labelText: 'Nama Lengkap',
                           prefixIcon: const Icon(Icons.person_outline),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12)),
@@ -614,15 +601,15 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                         textCapitalization: TextCapitalization.words,
                         enabled: !isLoading,
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return '⚠️ Nama lengkap wajib diisi';
-                          }
-                          if (value.trim().length < 3) {
-                            return '⚠️ Nama minimal 3 karakter';
-                          }
-                          if (!RegExp(r"^[a-zA-Z\s\-'\.]+$")
-                              .hasMatch(value.trim())) {
-                            return '⚠️ Nama hanya boleh berisi huruf dan spasi';
+                          // Nama lengkap optional, tapi jika diisi harus valid
+                          if (value != null && value.trim().isNotEmpty) {
+                            if (value.trim().length < 3) {
+                              return '⚠️ Nama minimal 3 karakter';
+                            }
+                            if (!RegExp(r"^[a-zA-Z\s\-'\.]+$")
+                                .hasMatch(value.trim())) {
+                              return '⚠️ Nama hanya boleh berisi huruf dan spasi';
+                            }
                           }
                           return null;
                         },
@@ -631,7 +618,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       TextFormField(
                         controller: _phoneController,
                         decoration: InputDecoration(
-                          labelText: 'Nomor Telepon (Opsional)',
+                          labelText: 'Nomor Telepon',
                           prefixIcon: const Icon(Icons.phone_outlined),
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12)),

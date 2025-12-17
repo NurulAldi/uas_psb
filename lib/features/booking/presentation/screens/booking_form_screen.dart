@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/services/location_service.dart';
 import 'package:rentlens/features/products/providers/product_provider.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
+import 'package:rentlens/features/auth/controllers/auth_controller.dart'
+    as auth_ctrl;
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/booking/domain/models/booking.dart';
 import 'package:rentlens/features/booking/data/repositories/booking_repository.dart';
@@ -55,39 +58,34 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
 
   Future<void> _calculateDistance() async {
     final productAsync = ref.read(productByIdProvider(widget.productId));
-    final profileAsync = ref.read(currentUserProfileProvider);
+    final authAsync = ref.read(auth_ctrl.authStateProvider);
+    final profile = authAsync.value?.user;
 
-    await productAsync.when(
+    productAsync.when(
       data: (product) async {
         if (product == null || product.ownerId == null) return;
 
-        await profileAsync.when(
-          data: (profile) async {
-            if (profile == null || !profile.hasLocation) return;
+        if (profile == null || !profile.hasLocation) return;
 
-            // Get product owner's location
-            final ownerProfile = await ref.read(
-              profileByIdProvider(product.ownerId!).future,
-            );
-
-            if (ownerProfile == null || !ownerProfile.hasLocation) return;
-
-            // Calculate distance
-            final distance = _locationService.calculateDistance(
-              startLat: profile.latitude!,
-              startLon: profile.longitude!,
-              endLat: ownerProfile.latitude!,
-              endLon: ownerProfile.longitude!,
-            );
-
-            setState(() {
-              _distanceKm = distance;
-              _deliveryFee = Booking.calculateDeliveryFee(distance);
-            });
-          },
-          loading: () {},
-          error: (_, __) {},
+        // Get product owner's location
+        final ownerProfile = await ref.read(
+          profileByIdProvider(product.ownerId!).future,
         );
+
+        if (ownerProfile == null || !ownerProfile.hasLocation) return;
+
+        // Calculate distance
+        final distance = _locationService.calculateDistance(
+          startLat: profile.latitude!,
+          startLon: profile.longitude!,
+          endLat: ownerProfile.latitude!,
+          endLon: ownerProfile.longitude!,
+        );
+
+        setState(() {
+          _distanceKm = distance;
+          _deliveryFee = Booking.calculateDeliveryFee(distance);
+        });
       },
       loading: () {},
       error: (_, __) {},
@@ -127,7 +125,7 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
     if (_startDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Silakan pilih tanggal mulai terlebih dahulu'),
+          content: Text(AppStrings.selectStartDateFirst),
           backgroundColor: Colors.orange,
         ),
       );
@@ -173,7 +171,7 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
     if (_startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select rental dates'),
+          content: Text(AppStrings.pleaseSelectRentalDates),
           backgroundColor: Colors.red,
         ),
       );
@@ -188,11 +186,11 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
           children: [
             Icon(Icons.help_outline, color: AppColors.primary),
             SizedBox(width: 12),
-            Text('Confirm Booking'),
+            Text(AppStrings.confirmBookingTitle),
           ],
         ),
         content: const Text(
-          'Are you sure you want to proceed with this booking?',
+          AppStrings.confirmBookingMessage,
           style: TextStyle(fontSize: 16),
         ),
         actions: [
@@ -260,7 +258,7 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
                       children: [
                         Icon(Icons.check_circle, color: Colors.white),
                         SizedBox(width: 12),
-                        Text('Booking submitted successfully!'),
+                        Text(AppStrings.bookingSubmittedSuccessfully),
                       ],
                     ),
                     backgroundColor: Colors.green,
@@ -296,17 +294,17 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
   @override
   Widget build(BuildContext context) {
     final productAsync = ref.watch(productByIdProvider(widget.productId));
-    final profileAsync = ref.watch(currentUserProfileProvider);
+    final authAsync = ref.watch(auth_ctrl.authStateProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Booking'),
+        title: const Text(AppStrings.newBooking),
         elevation: 0,
       ),
       body: productAsync.when(
         data: (product) {
           if (product == null) {
-            return const Center(child: Text('Product not found'));
+            return const Center(child: Text(AppStrings.productNotFound));
           }
 
           return SingleChildScrollView(
@@ -327,7 +325,7 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
                         const SizedBox(height: 24),
 
                         // Delivery Method Selection
-                        _buildDeliveryMethodSelection(profileAsync),
+                        _buildDeliveryMethodSelection(authAsync),
                         const SizedBox(height: 24),
 
                         // Notes
