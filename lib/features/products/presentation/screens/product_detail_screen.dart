@@ -159,7 +159,7 @@ class ProductDetailScreen extends ConsumerWidget {
               builder: (context, ref, child) {
                 final authState = ref.watch(auth.authProvider);
                 final isOwner = authState.userProfile != null &&
-                               authState.userProfile!.id == product.ownerId;
+                    authState.userProfile!.id == product.ownerId;
 
                 // Only show report button if user is authenticated and not the owner
                 if (authState.isAuthenticated && !isOwner) {
@@ -327,11 +327,13 @@ class ProductDetailScreen extends ConsumerWidget {
                   builder: (context, ref, child) {
                     final authState = ref.watch(auth.authProvider);
                     final isOwner = authState.isAuthenticated &&
-                                   authState.userProfile != null &&
-                                   authState.userProfile!.id == product.ownerId;
+                        authState.userProfile != null &&
+                        authState.userProfile!.id == product.ownerId;
 
                     // Only show owner section if user is authenticated and not the owner
-                    if (product.ownerId != null && authState.isAuthenticated && !isOwner) {
+                    if (product.ownerId != null &&
+                        authState.isAuthenticated &&
+                        !isOwner) {
                       return _OwnerInfoSection(ownerId: product.ownerId!);
                     }
                     return const SizedBox.shrink();
@@ -521,8 +523,8 @@ class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
   bool get _isOwner {
     final authState = ref.watch(auth.authProvider);
     return authState.isAuthenticated &&
-           authState.userProfile != null &&
-           authState.userProfile!.id == widget.product.ownerId;
+        authState.userProfile != null &&
+        authState.userProfile!.id == widget.product.ownerId;
   }
 
   @override

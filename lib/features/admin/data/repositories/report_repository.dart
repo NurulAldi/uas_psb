@@ -17,9 +17,19 @@ class ReportRepository {
         throw Exception('User not authenticated');
       }
 
+      // 🔒 APPLICATION-LEVEL VALIDATION
+      if (currentUserId == reportedUserId) {
+        throw Exception('Anda tidak dapat melaporkan akun sendiri');
+      }
+
       print('📝 REPORT REPOSITORY: Creating report...');
       print('   Reporter: $currentUserId');
       print('   Reported User: $reportedUserId');
+      print('   Reason: $reason');
+
+      // 🔒 SECURITY FIX: Set user context for RLS policies before creating report
+      await _supabase
+          .rpc('set_user_context', params: {'user_id': currentUserId});
 
       final response = await _supabase
           .from('reports')
