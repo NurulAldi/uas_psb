@@ -26,13 +26,13 @@ enum ReportStatus {
   String get label {
     switch (this) {
       case ReportStatus.pending:
-        return 'Pending';
+        return 'Menunggu';
       case ReportStatus.reviewed:
-        return 'Reviewed';
+        return 'Ditinjau';
       case ReportStatus.resolved:
-        return 'Resolved';
+        return 'Selesai';
       case ReportStatus.rejected:
-        return 'Rejected';
+        return 'Ditolak';
     }
   }
 }

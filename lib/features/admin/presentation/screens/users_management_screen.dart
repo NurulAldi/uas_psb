@@ -53,14 +53,13 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-                'Are you sure you want to ban ${user.fullName ?? user.email}?'),
+            Text('${AppStrings.banUserConfirmation}\n${user.fullName ?? user.email}'),
             const SizedBox(height: 16),
             TextField(
               controller: reasonController,
               decoration: const InputDecoration(
-                labelText: 'Reason',
-                hintText: 'Enter reason for ban',
+                labelText: AppStrings.reportReason,
+                hintText: AppStrings.enterReasonForBan,
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
@@ -70,7 +69,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text(AppStrings.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -92,8 +91,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
         print('❌ UI ERROR: No user logged in');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: Not logged in. Please login again.'),
+            SnackBar(
+              content: Text('${AppStrings.error}: ${AppStrings.userNotAuthenticated}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -107,8 +106,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
         print('❌ UI ERROR: User is not admin (role: ${currentUser.role})');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: Only admins can ban users.'),
+            SnackBar(
+              content: Text('${AppStrings.error}: ${AppStrings.adminAccessRequired}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -149,7 +148,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                   ),
                 ),
                 SizedBox(width: 16),
-                Text('Banning user...'),
+                Text(AppStrings.banningUser),
               ],
             ),
             duration: Duration(seconds: 30),
@@ -180,7 +179,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '✅ ${user.fullName ?? user.email} has been banned successfully!',
+                '${user.fullName ?? user.email} ${AppStrings.userBannedSuccessfully}',
               ),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
@@ -196,7 +195,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           print('❌ UI: Showing error message');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('❌ Failed to ban user. Check console for details.'),
+              content: Text(AppStrings.failedToBanUserDetails),
               backgroundColor: Colors.red,
               duration: Duration(seconds: 5),
             ),
@@ -220,7 +219,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text(AppStrings.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -259,8 +258,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'All Users'),
-            Tab(text: 'Banned Users'),
+            Tab(text: AppStrings.allUsers),
+            Tab(text: AppStrings.bannedUsers),
           ],
         ),
       ),
@@ -310,10 +309,10 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                         children: [
                           Text(user.email ?? user.username),
                           if (user.phoneNumber != null)
-                            Text('Phone: ${user.phoneNumber}'),
+                            Text('${AppStrings.phone}: ${user.phoneNumber}'),
                           if (user.isBanned)
                             Text(
-                              'BANNED',
+                              AppStrings.userBanned,
                               style: TextStyle(
                                 color: AppColors.error,
                                 fontWeight: FontWeight.bold,
@@ -326,8 +325,8 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                           : IconButton(
                               icon: const Icon(Icons.block, color: Colors.red),
                               onPressed: () => _banUser(user),
-                              tooltip: 'Ban User',
-                            ),
+                              tooltip: AppStrings.banUser,
+                             ),
                     ),
                   );
                 },
@@ -340,7 +339,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Error: $error'),
+            Text('${AppStrings.error}: $error'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => ref.invalidate(allUsersProvider),
@@ -361,7 +360,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           ref.invalidate(bannedUsersProvider);
         },
         child: bannedUsers.isEmpty
-            ? const Center(child: Text('No banned users'))
+            ? const Center(child: Text(AppStrings.noBannedUsers))
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: bannedUsers.length,
@@ -383,17 +382,17 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildInfoRow('Phone', user['phone'] ?? 'N/A'),
-                              _buildInfoRow('Products Count',
+                              _buildInfoRow(AppStrings.phone, user['phone'] ?? 'N/A'),
+                              _buildInfoRow(AppStrings.productsCount,
                                   user['products_count'].toString()),
-                              _buildInfoRow('Bookings Count',
+                              _buildInfoRow(AppStrings.bookingsCount,
                                   user['bookings_count'].toString()),
-                              _buildInfoRow('Reports Against',
+                              _buildInfoRow(AppStrings.reportsAgainst,
                                   user['reports_count'].toString()),
                               _buildInfoRow(
-                                  'Banned By', user['banned_by_name'] ?? 'N/A'),
+                                  AppStrings.bannedBy, user['banned_by_name'] ?? 'N/A'),
                               _buildInfoRow(
-                                  'Reason', user['ban_reason'] ?? 'N/A'),
+                                  AppStrings.reportReason, user['ban_reason'] ?? 'N/A'),
                               const SizedBox(height: 16),
                               SizedBox(
                                 width: double.infinity,
@@ -428,7 +427,7 @@ class _UsersManagementScreenState extends ConsumerState<UsersManagementScreen>
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Error: $error'),
+            Text('${AppStrings.error}: $error'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => ref.invalidate(bannedUsersProvider),

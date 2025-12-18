@@ -351,6 +351,40 @@ class AppStrings {
   static const String reportedItem = 'Item yang Dilaporkan';
   static const String reportDate = 'Tanggal Laporan';
 
+  // ADMIN (additional localized helpers)
+  static const String reportReasonMinLength = 'Alasan laporan minimal 10 karakter';
+  static const String loginToSubmitReport = 'Silakan masuk untuk mengirim laporan';
+  static const String reportReviewNotice =
+      'Laporan Anda akan ditinjau oleh tim administrator.';
+  static const String selectReason = 'Pilih Alasan';
+  static const String specifyReason = 'Tentukan Alasan';
+  static const String enterReasonForBan = 'Masukkan alasan pemblokiran';
+  static const String adminAccessRequired = 'Akses admin diperlukan';
+  static const String banningUser = 'Memblokir pengguna...';
+  static const String failedToBanUserDetails =
+      'Gagal memblokir pengguna. Periksa konsol untuk detail.';
+  static const String allUsers = 'Semua Pengguna';
+  static const String noBannedUsers = 'Tidak ada pengguna yang diblokir';
+  static const String phone = 'Telepon';
+  static const String productsCount = 'Jumlah Produk';
+  static const String bookingsCount = 'Jumlah Booking';
+  static const String reportsAgainst = 'Jumlah Laporan';
+  static const String bannedBy = 'Diblokir Oleh';
+  static const String reportId = 'ID Laporan';
+  static const String type = 'Tipe';
+  static const String reporter = 'Pelapor';
+  static const String descriptionLabel = 'Deskripsi';
+  static const String reviewedAt = 'Ditinjau Pada';
+  static const String reviewedBy = 'Ditinjau Oleh';
+  static const String adminNotes = 'Catatan Admin';
+  static const String reviewReport = 'Tinjau Laporan';
+  static const String reject = 'Tolak';
+  static const String failedToUpdateReport = 'Gagal memperbarui laporan';
+  static const String noPendingReports = 'Tidak ada laporan yang menunggu';
+  static const String noReportsFound = 'Tidak ada laporan ditemukan';
+  static const String overview = 'Ikhtisar';
+  static const String locationViewTest = 'Tes Tampilan Lokasi';
+
   // ============================================================================
   // MENU & NAVIGATION
   // ============================================================================
@@ -736,4 +770,16 @@ class AppStrings {
 
   static const String adjust = 'Sesuaikan';
   static const String viewAllProducts = 'Lihat Semua Produk';
+
+  // Admin UI specific strings
+  static const String reportManagementSubtitle =
+      'Tinjau dan ambil tindakan terhadap laporan pengguna';
+  static const String pendingTab = 'Menunggu';
+  static const String allReportsTab = 'Semua Laporan';
+  static const String failedToLoadReports = 'Gagal memuat laporan';
+  static const String banUserConfirmationTitle = 'Konfirmasi Pemblokiran';
+  static const String dismissed = 'Abaikan';
+  static const String reportDismissed = 'Laporan diabaikan';
+  static const String failedToDismissReport = 'Gagal mengabaikan laporan';
+  static const String dismissedLabel = 'Diabaikan';
 }

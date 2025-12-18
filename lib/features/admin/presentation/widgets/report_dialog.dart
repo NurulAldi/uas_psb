@@ -5,6 +5,7 @@ import 'package:rentlens/core/models/report.dart';
 import 'package:rentlens/features/admin/data/admin_repository.dart';
 import 'package:rentlens/features/admin/providers/admin_provider.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
+import 'package:rentlens/core/strings/app_strings.dart';
 
 class ReportDialog extends ConsumerStatefulWidget {
   final ReportType reportType;
@@ -32,21 +33,21 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
 
   // Common report reasons
   final List<String> _userReportReasons = [
-    'Spam or Scam',
-    'Inappropriate Behavior',
-    'Fraudulent Activity',
-    'Harassment',
-    'Fake Account',
-    'Other',
+    'Spam atau Penipuan',
+    'Perilaku Tidak Pantas',
+    'Aktivitas Penipuan',
+    'Pelecehan',
+    'Akun Palsu',
+    'Lainnya',
   ];
 
   final List<String> _productReportReasons = [
-    'Misleading Information',
-    'Inappropriate Content',
-    'Suspected Scam',
-    'Counterfeit Product',
-    'Overpriced',
-    'Other',
+    'Informasi Menyesatkan',
+    'Konten Tidak Pantas',
+    'Diduga Penipuan',
+    'Produk Palsu',
+    'Harga Berlebihan',
+    'Lainnya',
   ];
 
   String? _selectedReason;
@@ -65,7 +66,7 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
     if (currentUser == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login to submit a report')),
+          const SnackBar(content: Text(AppStrings.loginToSubmitReport)),
         );
       }
       return;
@@ -90,15 +91,15 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
         if (report != null) {
           Navigator.pop(context, true);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Report submitted successfully'),
+            SnackBar(
+              content: Text(AppStrings.reportSubmitted),
               backgroundColor: Colors.green,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Failed to submit report'),
+              content: Text(AppStrings.failedToSubmitReport),
               backgroundColor: Colors.red,
             ),
           );
@@ -107,7 +108,7 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('${AppStrings.error}: $e')),
         );
       }
     } finally {
@@ -134,7 +135,9 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
           ),
           const SizedBox(width: 12),
           Text(
-            'Report ${widget.reportType.value}',
+            widget.reportType == ReportType.user
+                ? AppStrings.reportUser
+                : AppStrings.reportProduct,
             style: const TextStyle(fontSize: 18),
           ),
         ],
@@ -179,7 +182,7 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
               DropdownButtonFormField<String>(
                 value: _selectedReason,
                 decoration: const InputDecoration(
-                  labelText: 'Select Reason',
+                  labelText: AppStrings.selectReason,
                   border: OutlineInputBorder(),
                 ),
                 items: reasons.map((reason) {
@@ -195,7 +198,7 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
                 },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please select a reason';
+                    return AppStrings.reportReasonRequired;
                   }
                   return null;
                 },
@@ -208,14 +211,14 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
                 TextFormField(
                   controller: _reasonController,
                   decoration: const InputDecoration(
-                    labelText: 'Specify Reason',
-                    hintText: 'Enter your reason',
+                    labelText: AppStrings.specifyReason,
+                    hintText: AppStrings.reportReasonHint,
                     border: OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    if (_selectedReason == 'Other' &&
+                    if (_selectedReason == 'Lainnya' &&
                         (value == null || value.trim().isEmpty)) {
-                      return 'Please specify the reason';
+                      return AppStrings.reportReasonRequired;
                     }
                     return null;
                   },
@@ -227,8 +230,8 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
-                  labelText: 'Additional Details (Optional)',
-                  hintText: 'Provide more information...',
+                  labelText: AppStrings.descriptionOptional,
+                  hintText: 'Tambahkan informasi tambahan...',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 4,
@@ -251,7 +254,7 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
-                        'Your report will be reviewed by our admin team.',
+                        AppStrings.reportReviewNotice,
                         style: TextStyle(fontSize: 12),
                       ),
                     ),
@@ -265,7 +268,7 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: const Text(AppStrings.cancel),
         ),
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitReport,
@@ -282,7 +285,7 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 )
-              : const Text('Submit Report'),
+              : const Text(AppStrings.submitReport),
         ),
       ],
     );

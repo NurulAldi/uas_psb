@@ -6,6 +6,7 @@ import 'package:rentlens/core/models/report.dart';
 import 'package:rentlens/features/admin/data/admin_repository.dart';
 import 'package:rentlens/features/admin/providers/admin_provider.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
+import 'package:rentlens/core/strings/app_strings.dart';
 
 final reportsProvider =
     FutureProvider.autoDispose<List<ReportWithDetails>>((ref) async {
@@ -45,64 +46,82 @@ class _ReportsManagementScreenState
   }
 
   Future<void> _handleReport(ReportWithDetails report) async {
-    final notesController = TextEditingController();
-    final selectedStatus = await showDialog<ReportStatus>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Review Report'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Report ID: ${report.id}'),
-            const SizedBox(height: 8),
-            Text('Type: ${report.reportType.value}'),
-            const SizedBox(height: 8),
-            Text('Reporter: ${report.reporterName}'),
-            const SizedBox(height: 16),
-            Text('Reason: ${report.reason}',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            if (report.description != null) ...[
-              const SizedBox(height: 8),
-              Text('Description: ${report.description}'),
-            ],
-            const SizedBox(height: 16),
-            TextField(
-              controller: notesController,
-              decoration: const InputDecoration(
-                labelText: 'Admin Notes',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, ReportStatus.rejected),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Reject'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, ReportStatus.resolved),
-            style: TextButton.styleFrom(foregroundColor: Colors.green),
-            child: const Text('Resolve'),
-          ),
-        ],
-      ),
-    );
+     final notesController = TextEditingController();
+     final selectedStatus = await showDialog<ReportStatus>(
+       context: context,
+       builder: (context) => AlertDialog(
+        title: const Text(AppStrings.reviewReport),
+         content: Column(
+           mainAxisSize: MainAxisSize.min,
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+-            Text('Report ID: ${report.id}'),
++            Text('${AppStrings.reportId}: ${report.id}'),
+             const SizedBox(height: 8),
+-            Text('Type: ${report.reportType.value}'),
++            Text('${AppStrings.type}: ${report.reportType.value}'),
+             const SizedBox(height: 8),
+-            Text('Reporter: ${report.reporterName}'),
++            Text('${AppStrings.reporter}: ${report.reporterName}'),
+             const SizedBox(height: 16),
+-            Text('Reason: ${report.reason}',
+-                style: const TextStyle(fontWeight: FontWeight.bold)),
++            Text('${AppStrings.reportReason}: ${report.reason}',
++                style: const TextStyle(fontWeight: FontWeight.bold)),
+             if (report.description != null) ...[
+               const SizedBox(height: 8),
+-              Text('Description: ${report.description}'),
++              Text('${AppStrings.descriptionLabel}: ${report.description}'),
+             ],
+             const SizedBox(height: 16),
+             TextField(
+               controller: notesController,
+               decoration: const InputDecoration(
+                 labelText: 'Admin Notes',
+                 border: OutlineInputBorder(),
+               ),
+               maxLines: 3,
+             ),
+           ],
+         ),
+         actions: [
+           TextButton(
+-            onPressed: () => Navigator.pop(context),
+-            child: const Text('Cancel'),
++            onPressed: () => Navigator.pop(context),
++            child: const Text(AppStrings.cancel),
+           ),
+-          TextButton(
+-            onPressed: () => Navigator.pop(context, ReportStatus.rejected),
+-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+-            child: const Text('Reject'),
+-          ),
+-          TextButton(
+-            onPressed: () => Navigator.pop(context, ReportStatus.resolved),
+-            style: TextButton.styleFrom(foregroundColor: Colors.green),
+-            child: const Text('Resolve'),
+-          ),
++          TextButton(
++            onPressed: () => Navigator.pop(context, ReportStatus.rejected),
++            style: TextButton.styleFrom(foregroundColor: AppColors.error),
++            child: const Text(AppStrings.reject),
++          ),
++          TextButton(
++            onPressed: () => Navigator.pop(context, ReportStatus.resolved),
++            style: TextButton.styleFrom(foregroundColor: Colors.green),
++            child: const Text(AppStrings.resolveReport),
++          ),
+         ],
+       ),
+     );
 
     if (selectedStatus != null && mounted) {
       final currentUser = ref.read(currentUserProvider);
       if (currentUser == null || currentUser.role != 'admin') {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: Admin access required'),
+            SnackBar(
+              content: Text('${AppStrings.error}: ${AppStrings.adminAccessRequired}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -121,14 +140,13 @@ class _ReportsManagementScreenState
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Report ${selectedStatus.label.toLowerCase()}')),
+            SnackBar(content: Text('Laporan ${selectedStatus.label.toLowerCase()}')),
           );
           ref.invalidate(reportsProvider);
           ref.invalidate(pendingReportsProvider);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to update report')),
+            const SnackBar(content: Text(AppStrings.failedToUpdateReport)),
           );
         }
       }
@@ -141,13 +159,13 @@ class _ReportsManagementScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Reports Management'),
+        title: const Text(AppStrings.reportManagement),
         automaticallyImplyLeading: false,
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Pending'),
-            Tab(text: 'All Reports'),
+            Tab(text: AppStrings.pendingTab),
+            Tab(text: AppStrings.allReportsTab),
           ],
         ),
       ),
@@ -170,7 +188,7 @@ class _ReportsManagementScreenState
           ref.invalidate(pendingReportsProvider);
         },
         child: reports.isEmpty
-            ? const Center(child: Text('No pending reports'))
+            ? const Center(child: Text(AppStrings.noPendingReports))
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: reports.length,
@@ -187,11 +205,12 @@ class _ReportsManagementScreenState
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Error: $error'),
+-            Text('Error: $error'),
++            Text('${AppStrings.error}: $error'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => ref.invalidate(pendingReportsProvider),
-              child: const Text('Retry'),
+              child: const Text(AppStrings.retry),
             ),
           ],
         ),
@@ -208,7 +227,7 @@ class _ReportsManagementScreenState
           ref.invalidate(reportsProvider);
         },
         child: reports.isEmpty
-            ? const Center(child: Text('No reports found'))
+            ? const Center(child: Text(AppStrings.noReportsFound))
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: reports.length,
@@ -225,11 +244,12 @@ class _ReportsManagementScreenState
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
-            Text('Error: $error'),
+-            Text('Error: $error'),
++            Text('${AppStrings.error}: $error'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => ref.invalidate(reportsProvider),
-              child: const Text('Retry'),
+              child: const Text(AppStrings.retry),
             ),
           ],
         ),
@@ -273,40 +293,40 @@ class _ReportsManagementScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildInfoRow('Report ID', report.id.substring(0, 8)),
-                _buildInfoRow('Reporter', report.reporterName),
-                _buildInfoRow('Reporter Email', report.reporterEmail),
+                _buildInfoRow(AppStrings.reportId, report.id.substring(0, 8)),
+                _buildInfoRow(AppStrings.reporter, report.reporterName),
+                _buildInfoRow('Email Pelapor', report.reporterEmail),
                 const Divider(),
-                _buildInfoRow('Reason', report.reason),
+                _buildInfoRow(AppStrings.reportReason, report.reason),
                 if (report.description != null)
-                  _buildInfoRow('Description', report.description!),
+                  _buildInfoRow(AppStrings.descriptionLabel, report.description!),
                 const Divider(),
                 if (report.reportType == ReportType.user) ...[
                   _buildInfoRow(
-                      'Reported User', report.reportedUserName ?? 'N/A'),
+                      'Pengguna yang Dilaporkan', report.reportedUserName ?? 'N/A'),
                   _buildInfoRow(
-                      'User Email', report.reportedUserEmail ?? 'N/A'),
-                  _buildInfoRow('Is Banned',
-                      report.reportedUserIsBanned == true ? 'Yes' : 'No',
+                      'Email Pengguna', report.reportedUserEmail ?? 'N/A'),
+                  _buildInfoRow('Diblokir',
+                      report.reportedUserIsBanned == true ? 'Ya' : 'Tidak',
                       valueColor: report.reportedUserIsBanned == true
                           ? AppColors.error
                           : null),
                 ] else ...[
                   _buildInfoRow(
-                      'Reported Product', report.reportedProductName ?? 'N/A'),
+                      'Produk yang Dilaporkan', report.reportedProductName ?? 'N/A'),
                 ],
                 const Divider(),
-                _buildInfoRow('Created At',
+                _buildInfoRow('Dibuat Pada',
                     DateFormat('dd MMM yyyy HH:mm').format(report.createdAt)),
                 if (report.reviewedAt != null)
                   _buildInfoRow(
-                      'Reviewed At',
+                      AppStrings.reviewedAt,
                       DateFormat('dd MMM yyyy HH:mm')
                           .format(report.reviewedAt!)),
                 if (report.reviewedByName != null)
-                  _buildInfoRow('Reviewed By', report.reviewedByName!),
+                  _buildInfoRow(AppStrings.reviewedBy, report.reviewedByName!),
                 if (report.adminNotes != null)
-                  _buildInfoRow('Admin Notes', report.adminNotes!),
+                  _buildInfoRow(AppStrings.adminNotes, report.adminNotes!),
                 if (report.status == ReportStatus.pending) ...[
                   const SizedBox(height: 16),
                   SizedBox(

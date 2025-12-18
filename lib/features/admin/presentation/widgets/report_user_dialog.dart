@@ -108,18 +108,17 @@ class _ReportUserDialogState extends ConsumerState<ReportUserDialog> {
                 maxLines: 5,
                 maxLength: 500,
                 decoration: const InputDecoration(
-                  labelText: 'Reason for Report',
-                  hintText:
-                      'Please describe why you are reporting this user...',
+                  labelText: AppStrings.reportReason,
+                  hintText: AppStrings.reportReasonHint,
                   border: OutlineInputBorder(),
                   alignLabelWithHint: true,
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please provide a reason';
+                    return AppStrings.reportReasonRequired;
                   }
                   if (value.trim().length < 10) {
-                    return 'Reason must be at least 10 characters';
+                    return AppStrings.reportReasonMinLength;
                   }
                   return null;
                 },
@@ -140,7 +139,7 @@ class _ReportUserDialogState extends ConsumerState<ReportUserDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text(AppStrings.cancel),
         ),
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submitReport,

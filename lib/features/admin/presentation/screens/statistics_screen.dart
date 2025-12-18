@@ -29,20 +29,20 @@ class StatisticsScreen extends ConsumerWidget {
     return Scaffold(
       body: statsAsync.when(
         data: (stats) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(adminStatisticsProvider);
-          },
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+           onRefresh: () async {
+             ref.invalidate(adminStatisticsProvider);
+           },
+           child: ListView(
+             padding: const EdgeInsets.all(16),
+             children: [
               const Text(
-                'Overview',
+                AppStrings.overview,
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(height: 16),
+               const SizedBox(height: 16),
 
               // Statistics Cards
               _buildStatCard(
@@ -80,7 +80,7 @@ class StatisticsScreen extends ConsumerWidget {
 
               // Debug Tools Section
               const Text(
-                'Debug Tools',
+                'Alat Debug',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -232,62 +232,93 @@ class StatisticsScreen extends ConsumerWidget {
         content: SizedBox(
           width: double.maxFinite,
           child: testAsync.when(
-            data: (result) {
-              final viewCount = result['view_count'] ?? 0;
-              final tableCount = result['table_count'] ?? 0;
-              final viewWorking = result['view_working'] ?? false;
-              final dataConsistent = result['data_consistent'] ?? false;
-              final error = result['error'];
+                data: (result) {
+                   final viewCount = result['view_count'] ?? 0;
+                   final tableCount = result['table_count'] ?? 0;
+                   final viewWorking = result['view_working'] ?? false;
+                   final dataConsistent = result['data_consistent'] ?? false;
+                   final error = result['error'];
 
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (error != null) ...[
-                      Text('❌ Error: $error',
-                          style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                    ],
-                    Text('View Count: $viewCount'),
-                    Text('Table Count: $tableCount'),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          viewWorking ? Icons.check_circle : Icons.error,
-                          color: viewWorking ? Colors.green : Colors.red,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          viewWorking ? 'View Working' : 'View Not Working',
-                          style: TextStyle(
-                            color: viewWorking ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          dataConsistent ? Icons.check_circle : Icons.warning,
-                          color: dataConsistent ? Colors.green : Colors.orange,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          dataConsistent
-                              ? 'Data Consistent'
-                              : 'Data Inconsistent',
-                          style: TextStyle(
-                            color:
-                                dataConsistent ? Colors.green : Colors.orange,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                   return SingleChildScrollView(
+                     child: Column(
+                       crossAxisAlignment: CrossAxisAlignment.start,
+                       mainAxisSize: MainAxisSize.min,
+                       children: [
+                         if (error != null) ...[
+-                      Text('❌ Error: $error',
+-                          style: const TextStyle(color: Colors.red)),
++                      Text('❌ ${AppStrings.error}: $error',
++                          style: const TextStyle(color: Colors.red)),
+                           const SizedBox(height: 16),
+                         ],
+-                    Text('View Count: $viewCount'),
+-                    Text('Table Count: $tableCount'),
++                    Text('Jumlah View: $viewCount'),
++                    Text('Jumlah Tabel: $tableCount'),
+                     const SizedBox(height: 8),
+                     Row(
+                       children: [
+-                        Icon(
+-                          viewWorking ? Icons.check_circle : Icons.error,
+-                          color: viewWorking ? Colors.green : Colors.red,
+-                        ),
+-                        const SizedBox(width: 8),
+-                        Text(
+-                          viewWorking ? 'View Working' : 'View Not Working',
+-                          style: TextStyle(
+-                            color: viewWorking ? Colors.green : Colors.red,
+-                            fontWeight: FontWeight.bold,
+-                          ),
+-                        ),
++                        Icon(
++                          viewWorking ? Icons.check_circle : Icons.error,
++                          color: viewWorking ? Colors.green : Colors.red,
++                        ),
++                        const SizedBox(width: 8),
++                        Text(
++                          viewWorking ? 'Tampilan Berfungsi' : 'Tampilan Tidak Berfungsi
++                          style: TextStyle(
++                            color: viewWorking ? Colors.green : Colors.red,
++                            fontWeight: FontWeight.bold,
++                          ),
++                        ),
+                       ],
+                     ),
+                     const SizedBox(height: 8),
+                     Row(
+                       children: [
+-                        Icon(
+-                          dataConsistent ? Icons.check_circle : Icons.warning,
+-                          color: dataConsistent ? Colors.green : Colors.orange,
+-                        ),
+-                        const SizedBox(width: 8),
+-                        Text(
+-                          dataConsistent
+-                              ? 'Data Consistent'
+-                              : 'Data Inconsistent',
+-                          style: TextStyle(
+-                            color:
+-                                dataConsistent ? Colors.green : Colors.orange,
+-                            fontWeight: FontWeight.bold,
+-                          ),
+-                        ),
++                        Icon(
++                          dataConsistent ? Icons.check_circle : Icons.warning,
++                          color: dataConsistent ? Colors.green : Colors.orange,
++                        ),
++                        const SizedBox(width: 8),
++                        Text(
++                          dataConsistent
++                              ? 'Data Konsisten'
++                              : 'Data Tidak Konsisten',
++                          style: TextStyle(
++                            color:
++                                dataConsistent ? Colors.green : Colors.orange,
++                            fontWeight: FontWeight.bold,
++                          ),
++                        ),
+                       ],
+                     ),
                     if (!dataConsistent) ...[
                       const SizedBox(height: 16),
                       const Text(
@@ -316,14 +347,14 @@ class StatisticsScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text(AppStrings.close),
           ),
           if (testAsync.hasValue)
             TextButton(
               onPressed: () {
                 ref.invalidate(locationViewTestProvider);
               },
-              child: const Text('Retry Test'),
+              child: const Text('Uji Ulang'),
             ),
         ],
       ),

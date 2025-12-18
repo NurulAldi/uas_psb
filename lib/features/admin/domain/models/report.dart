@@ -54,11 +54,11 @@ class Report {
   String get statusText {
     switch (status) {
       case 'pending':
-        return 'Pending';
+        return 'Menunggu';
       case 'resolved':
-        return 'Resolved';
+        return 'Selesai';
       case 'dismissed':
-        return 'Dismissed';
+        return AppStrings.dismissedLabel;
       default:
         return status;
     }

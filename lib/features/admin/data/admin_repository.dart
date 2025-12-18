@@ -321,14 +321,45 @@ class AdminRepository {
     String? adminNotes,
   }) async {
     try {
-      await _supabase.from('reports').update({
-        'status': status.value,
-        'reviewed_by': adminId,
-        'reviewed_at': DateTime.now().toIso8601String(),
-        'admin_notes': adminNotes,
-      }).eq('id', reportId);
+      // Set user context so RLS policies that depend on app.current_user_id work
+      // This mirrors how other repositories use `set_user_context` before actions
+      try {
+        await _supabase.rpc('set_user_context', params: {'user_id': adminId});
+        print(
+            '🔧 AdminRepository: set_user_context called for admin: $adminId');
+      } catch (e) {
+        print('⚠️ AdminRepository: Failed to set user context: $e');
+        // Continue — the update may still fail due to RLS but we'll detect that below
+      }
 
-      return true;
+      print('📝 AdminRepository: Updating report status...');
+
+      // Capture update response and ensure at least one row was updated
+      final response = await _supabase
+          .from('reports')
+          .update({
+            'status': status.value,
+            'reviewed_by': adminId,
+            'reviewed_at': DateTime.now().toIso8601String(),
+            'admin_notes': adminNotes,
+          })
+          .eq('id', reportId)
+          .select();
+
+      // Postgrest returns a list of updated rows when .select() is used
+      if (response == null) {
+        print('❌ AdminRepository: Update returned null response');
+        return false;
+      }
+
+      if (response is List && response.isNotEmpty) {
+        print('✅ AdminRepository: Report updated successfully (id: $reportId)');
+        return true;
+      } else {
+        print(
+            '⚠️ AdminRepository: No rows were updated for report id: $reportId');
+        return false;
+      }
     } catch (e) {
       print('Error updating report: $e');
       return false;

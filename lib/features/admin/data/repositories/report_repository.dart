@@ -14,7 +14,7 @@ class ReportRepository {
     try {
       final currentUserId = await SupabaseConfig.currentUserId;
       if (currentUserId == null) {
-        throw Exception('User not authenticated');
+        throw Exception(AppStrings.userNotAuthenticated);
       }
 
       // 🔒 APPLICATION-LEVEL VALIDATION
@@ -106,26 +106,45 @@ class ReportRepository {
     try {
       final currentUserId = SupabaseConfig.currentUserId;
       if (currentUserId == null) {
-        throw Exception('User not authenticated');
+        throw Exception(AppStrings.userNotAuthenticated);
       }
 
       print('🚫 REPORT REPOSITORY: Banning user and resolving report...');
       print('   Report ID: $reportId');
       print('   User to ban: $reportedUserId');
 
+      // Set user context for RLS policies
+      try {
+        await _supabase
+            .rpc('set_user_context', params: {'user_id': currentUserId});
+        print(
+            '🔧 REPORT REPOSITORY: set_user_context called for $currentUserId');
+      } catch (e) {
+        print('⚠️ REPORT REPOSITORY: Failed to set user context: $e');
+      }
+
       // Ban the user
       await _supabase
           .from('users')
           .update({'is_banned': true}).eq('id', reportedUserId);
 
-      // Resolve the report
-      await _supabase.from('reports').update({
-        'status': 'resolved',
-        'resolved_by': currentUserId,
-        'admin_notes': adminNotes,
-      }).eq('id', reportId);
+      // Resolve the report and verify update
+      final response = await _supabase
+          .from('reports')
+          .update({
+            'status': 'resolved',
+            'resolved_by': currentUserId,
+            'admin_notes': adminNotes,
+          })
+          .eq('id', reportId)
+          .select();
 
-      print('✅ REPORT REPOSITORY: User banned and report resolved');
+      if (response is List && response.isNotEmpty) {
+        print('✅ REPORT REPOSITORY: User banned and report resolved');
+      } else {
+        print('❌ REPORT REPOSITORY: No rows updated for report id $reportId');
+        throw Exception(AppStrings.failedToUpdateReport);
+      }
     } catch (e, stackTrace) {
       print('❌ REPORT REPOSITORY: Error banning user = $e');
       print('Stack trace: $stackTrace');
@@ -141,19 +160,38 @@ class ReportRepository {
     try {
       final currentUserId = SupabaseConfig.currentUserId;
       if (currentUserId == null) {
-        throw Exception('User not authenticated');
+        throw Exception(AppStrings.userNotAuthenticated);
       }
 
       print('📝 REPORT REPOSITORY: Dismissing report...');
       print('   Report ID: $reportId');
 
-      await _supabase.from('reports').update({
-        'status': 'dismissed',
-        'resolved_by': currentUserId,
-        'admin_notes': adminNotes,
-      }).eq('id', reportId);
+      // Set user context for RLS policies
+      try {
+        await _supabase
+            .rpc('set_user_context', params: {'user_id': currentUserId});
+        print(
+            '🔧 REPORT REPOSITORY: set_user_context called for $currentUserId');
+      } catch (e) {
+        print('⚠️ REPORT REPOSITORY: Failed to set user context: $e');
+      }
 
-      print('✅ REPORT REPOSITORY: Report dismissed');
+      final response = await _supabase
+          .from('reports')
+          .update({
+            'status': 'dismissed',
+            'resolved_by': currentUserId,
+            'admin_notes': adminNotes,
+          })
+          .eq('id', reportId)
+          .select();
+
+      if (response is List && response.isNotEmpty) {
+        print('✅ REPORT REPOSITORY: Report dismissed');
+      } else {
+        print('❌ REPORT REPOSITORY: No rows updated for report id $reportId');
+        throw Exception(AppStrings.failedToDismissReport);
+      }
     } catch (e, stackTrace) {
       print('❌ REPORT REPOSITORY: Error dismissing report = $e');
       print('Stack trace: $stackTrace');

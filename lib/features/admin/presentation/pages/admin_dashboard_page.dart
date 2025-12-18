@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rentlens/features/admin/providers/report_provider.dart';
 import 'package:rentlens/features/admin/domain/models/report.dart';
+import 'package:rentlens/l10n/app_strings.dart';
 
 /// Format time ago helper function
 String _formatTimeAgo(DateTime dateTime) {
@@ -43,7 +44,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin Dashboard'),
+        title: const Text(AppStrings.adminDashboard),
         backgroundColor: Colors.deepPurple[700],
         elevation: 0,
         actions: [
@@ -53,7 +54,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
               ref.invalidate(pendingReportsProvider);
               ref.invalidate(allReportsProvider);
             },
-            tooltip: 'Refresh',
+            tooltip: AppStrings.refresh,
           ),
         ],
       ),
@@ -79,7 +80,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                         color: Colors.white, size: 28),
                     const SizedBox(width: 12),
                     const Text(
-                      'User Reports Management',
+                      AppStrings.reportManagement,
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -90,7 +91,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Review and take action on user reports',
+                  AppStrings.reportManagementSubtitle,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 14,
@@ -111,12 +112,12 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                     segments: [
                       ButtonSegment<bool>(
                         value: false,
-                        label: Text('Pending'),
+                        label: Text(AppStrings.pendingTab),
                         icon: Icon(Icons.pending_actions),
                       ),
                       ButtonSegment<bool>(
                         value: true,
-                        label: Text('All Reports'),
+                        label: Text(AppStrings.allReportsTab),
                         icon: Icon(Icons.list),
                       ),
                     ],
@@ -148,20 +149,18 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          _showAllReports
-                              ? 'No reports yet'
-                              : 'No pending reports',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey[600],
-                          ),
-                        ),
+                          _showAllReports ? AppStrings.noReportsFound : AppStrings.noPendingReports,
+                           style: TextStyle(
+                             fontSize: 18,
+                             fontWeight: FontWeight.w500,
+                             color: Colors.grey[600],
+                           ),
+                         ),
                         const SizedBox(height: 8),
                         Text(
                           _showAllReports
-                              ? 'All reports will appear here'
-                              : 'Great! All reports have been handled',
+                              ? AppStrings.noReportsFound
+                              : 'Semua laporan telah ditangani',
                           style: TextStyle(color: Colors.grey[500]),
                         ),
                       ],
@@ -191,8 +190,8 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                   children: [
                     Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                     const SizedBox(height: 16),
-                    Text(
-                      'Error loading reports',
+                    const Text(
+                      AppStrings.failedToLoadReports,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
@@ -212,7 +211,7 @@ class _AdminDashboardPageState extends ConsumerState<AdminDashboardPage> {
                         ref.invalidate(allReportsProvider);
                       },
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry'),
+                      label: const Text(AppStrings.retry),
                     ),
                   ],
                 ),
@@ -246,20 +245,20 @@ class _ReportCard extends ConsumerWidget {
           children: [
             Icon(Icons.warning, color: Colors.red),
             SizedBox(width: 8),
-            Text('Confirm Ban'),
+            Text(AppStrings.banUserConfirmationTitle),
           ],
         ),
         content: Text(
-          'Are you sure you want to ban ${reportWithDetails.reportedUserName}?\n\n'
-          'This will:\n'
-          '• Immediately log them out\n'
-          '• Prevent future logins\n'
-          '• Mark this report as resolved',
+          'Apakah Anda yakin memblokir ${reportWithDetails.reportedUserName}?\n\n'
+          'Ini akan:\n'
+          '• Mengeluarkan pengguna secara langsung\n'
+          '• Mencegah login di masa depan\n'
+          '• Menandai laporan ini sebagai selesai',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text(AppStrings.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -267,7 +266,7 @@ class _ReportCard extends ConsumerWidget {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Ban User'),
+            child: const Text(AppStrings.banUser),
           ),
         ],
       ),
@@ -287,8 +286,7 @@ class _ReportCard extends ConsumerWidget {
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text('${reportWithDetails.reportedUserName} has been banned'),
+          content: Text('${reportWithDetails.reportedUserName} ${AppStrings.userBannedSuccessfully}'),
           backgroundColor: Colors.green,
         ),
       );
@@ -296,7 +294,7 @@ class _ReportCard extends ConsumerWidget {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to ban user'),
+          content: Text(AppStrings.failedToBanUser),
           backgroundColor: Colors.red,
         ),
       );
@@ -314,21 +312,21 @@ class _ReportCard extends ConsumerWidget {
           children: [
             Icon(Icons.info, color: Colors.blue),
             SizedBox(width: 8),
-            Text('Dismiss Report'),
+            Text(AppStrings.dismissed),
           ],
         ),
         content: Text(
-          'Are you sure you want to dismiss this report?\n\n'
-          'The report will be marked as dismissed and no action will be taken against ${reportWithDetails.reportedUserName}.',
+          'Apakah Anda yakin ingin mengabaikan laporan ini?\n\n'
+          'Laporan akan ditandai sebagai diabaikan dan tidak akan ada tindakan terhadap ${reportWithDetails.reportedUserName}.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text(AppStrings.cancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Dismiss'),
+            child: const Text(AppStrings.dismissed),
           ),
         ],
       ),
@@ -347,7 +345,7 @@ class _ReportCard extends ConsumerWidget {
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Report dismissed'),
+          content: Text(AppStrings.reportDismissed),
           backgroundColor: Colors.green,
         ),
       );
@@ -355,7 +353,7 @@ class _ReportCard extends ConsumerWidget {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to dismiss report'),
+          content: Text(AppStrings.failedToDismissReport),
           backgroundColor: Colors.red,
         ),
       );
@@ -436,7 +434,7 @@ class _ReportCard extends ConsumerWidget {
                         Icon(Icons.block, size: 14, color: Colors.red[700]),
                         const SizedBox(width: 4),
                         Text(
-                          'BANNED',
+                          AppStrings.userBanned.toUpperCase(),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -459,7 +457,7 @@ class _ReportCard extends ConsumerWidget {
                 // Reporter info
                 _InfoRow(
                   icon: Icons.person,
-                  label: 'Reporter',
+                  label: AppStrings.reporter,
                   value: reportWithDetails.reporterName,
                   subtitle: reportWithDetails.reporterEmail,
                 ),
@@ -468,7 +466,7 @@ class _ReportCard extends ConsumerWidget {
                 // Reported user info
                 _InfoRow(
                   icon: Icons.flag,
-                  label: 'Reported User',
+                  label: 'Pengguna yang Dilaporkan',
                   value: reportWithDetails.reportedUserName,
                   subtitle: reportWithDetails.reportedUserEmail,
                   isHighlighted: true,
@@ -492,7 +490,7 @@ class _ReportCard extends ConsumerWidget {
                               size: 16, color: Colors.grey[700]),
                           const SizedBox(width: 8),
                           Text(
-                            'Reason',
+                            AppStrings.reportReason,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.grey[700],
@@ -527,7 +525,7 @@ class _ReportCard extends ConsumerWidget {
                     child: OutlinedButton.icon(
                       onPressed: () => _showDismissConfirmation(context, ref),
                       icon: const Icon(Icons.close),
-                      label: const Text('Dismiss'),
+                      label: const Text(AppStrings.dismissed),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.grey[700],
                       ),
@@ -538,7 +536,7 @@ class _ReportCard extends ConsumerWidget {
                     child: ElevatedButton.icon(
                       onPressed: () => _showBanConfirmation(context, ref),
                       icon: const Icon(Icons.block),
-                      label: const Text('Ban User'),
+                      label: const Text(AppStrings.banUser),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red[700],
                         foregroundColor: Colors.white,
