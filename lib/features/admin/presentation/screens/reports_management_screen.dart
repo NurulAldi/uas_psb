@@ -6,18 +6,12 @@ import 'package:rentlens/core/models/report.dart';
 import 'package:rentlens/features/admin/data/admin_repository.dart';
 import 'package:rentlens/features/admin/providers/admin_provider.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
-import 'package:rentlens/core/strings/app_strings.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 
-final reportsProvider =
-    FutureProvider.autoDispose<List<ReportWithDetails>>((ref) async {
+final reportsProvider = FutureProvider.autoDispose
+    .family<List<ReportWithDetails>, ReportStatus?>((ref, status) async {
   final adminRepo = ref.watch(adminRepositoryProvider);
-  return await adminRepo.getReports();
-});
-
-final pendingReportsProvider =
-    FutureProvider.autoDispose<List<ReportWithDetails>>((ref) async {
-  final adminRepo = ref.watch(adminRepositoryProvider);
-  return await adminRepo.getReports(status: ReportStatus.pending);
+  return await adminRepo.getReports(status: status);
 });
 
 class ReportsManagementScreen extends ConsumerStatefulWidget {
@@ -29,91 +23,60 @@ class ReportsManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _ReportsManagementScreenState
-    extends ConsumerState<ReportsManagementScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+    extends ConsumerState<ReportsManagementScreen> {
+  ReportStatus? _selectedStatus;
 
   Future<void> _handleReport(ReportWithDetails report) async {
-     final notesController = TextEditingController();
-     final selectedStatus = await showDialog<ReportStatus>(
-       context: context,
-       builder: (context) => AlertDialog(
+    final notesController = TextEditingController();
+    final selectedStatus = await showDialog<ReportStatus>(
+      context: context,
+      builder: (context) => AlertDialog(
         title: const Text(AppStrings.reviewReport),
-         content: Column(
-           mainAxisSize: MainAxisSize.min,
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
--            Text('Report ID: ${report.id}'),
-+            Text('${AppStrings.reportId}: ${report.id}'),
-             const SizedBox(height: 8),
--            Text('Type: ${report.reportType.value}'),
-+            Text('${AppStrings.type}: ${report.reportType.value}'),
-             const SizedBox(height: 8),
--            Text('Reporter: ${report.reporterName}'),
-+            Text('${AppStrings.reporter}: ${report.reporterName}'),
-             const SizedBox(height: 16),
--            Text('Reason: ${report.reason}',
--                style: const TextStyle(fontWeight: FontWeight.bold)),
-+            Text('${AppStrings.reportReason}: ${report.reason}',
-+                style: const TextStyle(fontWeight: FontWeight.bold)),
-             if (report.description != null) ...[
-               const SizedBox(height: 8),
--              Text('Description: ${report.description}'),
-+              Text('${AppStrings.descriptionLabel}: ${report.description}'),
-             ],
-             const SizedBox(height: 16),
-             TextField(
-               controller: notesController,
-               decoration: const InputDecoration(
-                 labelText: 'Admin Notes',
-                 border: OutlineInputBorder(),
-               ),
-               maxLines: 3,
-             ),
-           ],
-         ),
-         actions: [
-           TextButton(
--            onPressed: () => Navigator.pop(context),
--            child: const Text('Cancel'),
-+            onPressed: () => Navigator.pop(context),
-+            child: const Text(AppStrings.cancel),
-           ),
--          TextButton(
--            onPressed: () => Navigator.pop(context, ReportStatus.rejected),
--            style: TextButton.styleFrom(foregroundColor: AppColors.error),
--            child: const Text('Reject'),
--          ),
--          TextButton(
--            onPressed: () => Navigator.pop(context, ReportStatus.resolved),
--            style: TextButton.styleFrom(foregroundColor: Colors.green),
--            child: const Text('Resolve'),
--          ),
-+          TextButton(
-+            onPressed: () => Navigator.pop(context, ReportStatus.rejected),
-+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-+            child: const Text(AppStrings.reject),
-+          ),
-+          TextButton(
-+            onPressed: () => Navigator.pop(context, ReportStatus.resolved),
-+            style: TextButton.styleFrom(foregroundColor: Colors.green),
-+            child: const Text(AppStrings.resolveReport),
-+          ),
-         ],
-       ),
-     );
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${AppStrings.reportId}: ${report.id}'),
+            const SizedBox(height: 8),
+            Text('${AppStrings.type}: ${report.reportType.value}'),
+            const SizedBox(height: 8),
+            Text('${AppStrings.reporter}: ${report.reporterName}'),
+            const SizedBox(height: 16),
+            Text('${AppStrings.reportReason}: ${report.reason}',
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            if (report.description != null) ...[
+              const SizedBox(height: 8),
+              Text('${AppStrings.descriptionLabel}: ${report.description}'),
+            ],
+            const SizedBox(height: 16),
+            TextField(
+              controller: notesController,
+              decoration: const InputDecoration(
+                labelText: 'Admin Notes',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(AppStrings.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ReportStatus.rejected),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text(AppStrings.reject),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, ReportStatus.resolved),
+            style: TextButton.styleFrom(foregroundColor: Colors.green),
+            child: const Text(AppStrings.resolveReport),
+          ),
+        ],
+      ),
+    );
 
     if (selectedStatus != null && mounted) {
       final currentUser = ref.read(currentUserProvider);
@@ -121,7 +84,8 @@ class _ReportsManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${AppStrings.error}: ${AppStrings.adminAccessRequired}'),
+              content: Text(
+                  '${AppStrings.error}: ${AppStrings.adminAccessRequired}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -140,10 +104,11 @@ class _ReportsManagementScreenState
       if (mounted) {
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Laporan ${selectedStatus.label.toLowerCase()}')),
+            SnackBar(
+                content: Text('Laporan ${selectedStatus.label.toLowerCase()}')),
           );
-          ref.invalidate(reportsProvider);
-          ref.invalidate(pendingReportsProvider);
+          ref.invalidate(reportsProvider(_selectedStatus));
+          ref.invalidate(reportsProvider(null));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text(AppStrings.failedToUpdateReport)),
@@ -161,75 +126,61 @@ class _ReportsManagementScreenState
       appBar: AppBar(
         title: const Text(AppStrings.reportManagement),
         automaticallyImplyLeading: false,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: AppStrings.pendingTab),
-            Tab(text: AppStrings.allReportsTab),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildPendingTab(),
-          _buildAllReportsTab(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPendingTab() {
-    final reportsAsync = ref.watch(pendingReportsProvider);
-
-    return reportsAsync.when(
-      data: (reports) => RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(pendingReportsProvider);
-        },
-        child: reports.isEmpty
-            ? const Center(child: Text(AppStrings.noPendingReports))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: reports.length,
-                itemBuilder: (context, index) {
-                  final report = reports[index];
-                  return _buildReportCard(report);
-                },
-              ),
-      ),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
--            Text('Error: $error'),
-+            Text('${AppStrings.error}: $error'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () => ref.invalidate(pendingReportsProvider),
-              child: const Text(AppStrings.retry),
+            // Status filter (compact dropdown)
+            Row(
+              children: [
+                const Text(
+                  'Filter:',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 12),
+                DropdownButton<ReportStatus?>(
+                  value: _selectedStatus,
+                  hint: const Text(AppStrings.allReportsTab),
+                  items: [
+                    const DropdownMenuItem<ReportStatus?>(
+                      value: null,
+                      child: Text(AppStrings.allReportsTab),
+                    ),
+                    for (final status in ReportStatus.values)
+                      if (status != ReportStatus.reviewed)
+                        DropdownMenuItem<ReportStatus?>(
+                          value: status,
+                          child: Text(status.label),
+                        ),
+                  ],
+                  onChanged: (value) => setState(() => _selectedStatus = value),
+                  underline: Container(height: 1, color: Colors.grey[300]),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
+            // Report list
+            Expanded(child: _buildReportsList()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildAllReportsTab() {
-    final reportsAsync = ref.watch(reportsProvider);
+  Widget _buildReportsList() {
+    final reportsAsync = ref.watch(reportsProvider(_selectedStatus));
 
     return reportsAsync.when(
       data: (reports) => RefreshIndicator(
         onRefresh: () async {
-          ref.invalidate(reportsProvider);
+          ref.invalidate(reportsProvider(_selectedStatus));
         },
         child: reports.isEmpty
             ? const Center(child: Text(AppStrings.noReportsFound))
             : ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 itemCount: reports.length,
                 itemBuilder: (context, index) {
                   final report = reports[index];
@@ -244,11 +195,10 @@ class _ReportsManagementScreenState
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
--            Text('Error: $error'),
-+            Text('${AppStrings.error}: $error'),
+            Text('${AppStrings.error}: $error'),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => ref.invalidate(reportsProvider),
+              onPressed: () => ref.invalidate(reportsProvider(_selectedStatus)),
               child: const Text(AppStrings.retry),
             ),
           ],
@@ -299,11 +249,12 @@ class _ReportsManagementScreenState
                 const Divider(),
                 _buildInfoRow(AppStrings.reportReason, report.reason),
                 if (report.description != null)
-                  _buildInfoRow(AppStrings.descriptionLabel, report.description!),
+                  _buildInfoRow(
+                      AppStrings.descriptionLabel, report.description!),
                 const Divider(),
                 if (report.reportType == ReportType.user) ...[
-                  _buildInfoRow(
-                      'Pengguna yang Dilaporkan', report.reportedUserName ?? 'N/A'),
+                  _buildInfoRow('Pengguna yang Dilaporkan',
+                      report.reportedUserName ?? 'N/A'),
                   _buildInfoRow(
                       'Email Pengguna', report.reportedUserEmail ?? 'N/A'),
                   _buildInfoRow('Diblokir',
@@ -312,8 +263,8 @@ class _ReportsManagementScreenState
                           ? AppColors.error
                           : null),
                 ] else ...[
-                  _buildInfoRow(
-                      'Produk yang Dilaporkan', report.reportedProductName ?? 'N/A'),
+                  _buildInfoRow('Produk yang Dilaporkan',
+                      report.reportedProductName ?? 'N/A'),
                 ],
                 const Divider(),
                 _buildInfoRow('Dibuat Pada',

@@ -65,7 +65,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'logout') {
-                await ref.read(authControllerProvider.notifier).signOut();
+                final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text(AppStrings.logout),
+                    content: const Text(AppStrings.logoutConfirmation),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text(AppStrings.cancel),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text(AppStrings.logout),
+                      ),
+                    ],
+                  ),
+                );
+                if (shouldLogout == true) {
+                  await ref.read(authControllerProvider.notifier).signOut();
+                }
               } else if (value == 'my-listings') {
                 context.push('/products/my-listings');
               } else if (value == 'edit-profile') {

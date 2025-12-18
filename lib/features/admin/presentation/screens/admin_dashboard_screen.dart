@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
 import 'package:rentlens/features/auth/providers/profile_provider.dart';
 import 'package:rentlens/features/admin/presentation/screens/users_management_screen.dart';
@@ -47,20 +48,19 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content:
-            const Text('Apakah Anda yakin ingin keluar dari dashboard admin?'),
+        title: const Text(AppStrings.logout),
+        content: const Text(AppStrings.logoutFromAdmin),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
+            child: const Text(AppStrings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.error,
             ),
-            child: const Text('Logout'),
+            child: const Text(AppStrings.logout),
           ),
         ],
       ),
@@ -100,7 +100,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       data: (authState) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Admin Dashboard - RentLens'),
+            title: const Text(AppStrings.adminDashboard),
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             automaticallyImplyLeading: false,

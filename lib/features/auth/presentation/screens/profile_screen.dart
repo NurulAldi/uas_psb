@@ -43,13 +43,27 @@ class ProfileScreen extends ConsumerWidget {
                   onPressed: isLoading
                       ? null
                       : () async {
-                          print('\n🔵 PROFILE: Logout button pressed');
-                          // Proper sign out - call the auth controller
-                          await ref
-                              .read(authControllerProvider.notifier)
-                              .signOut();
-                          print('📊 PROFILE: Sign out completed');
-                          // Router will automatically redirect to login
+                          final shouldLogout = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text(AppStrings.logout),
+                              content: const Text(AppStrings.logoutConfirmation),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text(AppStrings.cancel),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text(AppStrings.logout),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (shouldLogout == true) {
+                            print('\n🔵 PROFILE: Logout confirmed');
+                            await ref.read(authControllerProvider.notifier).signOut();
+                          }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.error,

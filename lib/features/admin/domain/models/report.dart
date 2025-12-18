@@ -1,4 +1,6 @@
 /// Report Model
+import 'package:rentlens/core/constants/app_strings.dart';
+
 class Report {
   final String id;
   final String reporterId;

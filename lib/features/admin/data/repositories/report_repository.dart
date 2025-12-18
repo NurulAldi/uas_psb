@@ -1,4 +1,5 @@
 import 'package:rentlens/core/config/supabase_config.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/admin/domain/models/report.dart';
 
 /// Report Repository
@@ -123,26 +124,44 @@ class ReportRepository {
         print('⚠️ REPORT REPOSITORY: Failed to set user context: $e');
       }
 
-      // Ban the user
-      await _supabase
-          .from('users')
-          .update({'is_banned': true}).eq('id', reportedUserId);
+      // Prefer calling the admin RPC to ban user and resolve report in one atomic operation
+      try {
+        final rpcResponse = await _supabase.rpc('admin_ban_user', params: {
+          'p_user_id': reportedUserId,
+          'p_admin_id': currentUserId,
+          'p_reason': adminNotes ?? 'Banned via report',
+        });
 
-      // Resolve the report and verify update
-      final response = await _supabase
-          .from('reports')
-          .update({
-            'status': 'resolved',
-            'resolved_by': currentUserId,
-            'admin_notes': adminNotes,
-          })
-          .eq('id', reportId)
-          .select();
+        print(
+            '📥 REPORT REPOSITORY: admin_ban_user RPC response: $rpcResponse');
 
-      if (response is List && response.isNotEmpty) {
-        print('✅ REPORT REPOSITORY: User banned and report resolved');
-      } else {
-        print('❌ REPORT REPOSITORY: No rows updated for report id $reportId');
+        if (rpcResponse is Map && rpcResponse['success'] == true) {
+          // Now mark the report as resolved using admin_update_report_status
+          final resolveResponse =
+              await _supabase.rpc('admin_update_report_status', params: {
+            'p_report_id': reportId,
+            'p_status': 'resolved',
+            'p_admin_id': currentUserId,
+            'p_admin_notes': adminNotes,
+          });
+
+          print(
+              '📥 REPORT REPOSITORY: admin_update_report_status RPC response: $resolveResponse');
+
+          if (resolveResponse is Map && resolveResponse['success'] == true) {
+            print('✅ REPORT REPOSITORY: User banned and report resolved');
+          } else {
+            print(
+                '❌ REPORT REPOSITORY: Failed to mark report as resolved: $resolveResponse');
+            throw Exception(AppStrings.failedToUpdateReport);
+          }
+        } else {
+          print(
+              '❌ REPORT REPOSITORY: admin_ban_user reported failure: $rpcResponse');
+          throw Exception(AppStrings.failedToUpdateReport);
+        }
+      } catch (e) {
+        print('❌ REPORT REPOSITORY: RPC admin_ban_user failed: $e');
         throw Exception(AppStrings.failedToUpdateReport);
       }
     } catch (e, stackTrace) {
@@ -176,20 +195,27 @@ class ReportRepository {
         print('⚠️ REPORT REPOSITORY: Failed to set user context: $e');
       }
 
-      final response = await _supabase
-          .from('reports')
-          .update({
-            'status': 'dismissed',
-            'resolved_by': currentUserId,
-            'admin_notes': adminNotes,
-          })
-          .eq('id', reportId)
-          .select();
+      // Use admin_update_report_status RPC to dismiss report
+      try {
+        final rpcResponse =
+            await _supabase.rpc('admin_update_report_status', params: {
+          'p_report_id': reportId,
+          'p_status': 'dismissed',
+          'p_admin_id': currentUserId,
+          'p_admin_notes': adminNotes,
+        });
 
-      if (response is List && response.isNotEmpty) {
-        print('✅ REPORT REPOSITORY: Report dismissed');
-      } else {
-        print('❌ REPORT REPOSITORY: No rows updated for report id $reportId');
+        print(
+            '📥 REPORT REPOSITORY: admin_update_report_status RPC response: $rpcResponse');
+
+        if (rpcResponse is Map && rpcResponse['success'] == true) {
+          print('✅ REPORT REPOSITORY: Report dismissed');
+        } else {
+          print('❌ REPORT REPOSITORY: RPC reported failure: $rpcResponse');
+          throw Exception(AppStrings.failedToDismissReport);
+        }
+      } catch (e) {
+        print('❌ REPORT REPOSITORY: RPC admin_update_report_status failed: $e');
         throw Exception(AppStrings.failedToDismissReport);
       }
     } catch (e, stackTrace) {

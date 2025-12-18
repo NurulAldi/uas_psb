@@ -46,6 +46,8 @@ class AppStrings {
   static const String noAccount = 'Belum punya akun? ';
   static const String registerNow = 'Daftar';
   static const String logout = 'Keluar';
+  static const String logoutConfirmation = 'Apakah Anda yakin ingin keluar?';
+  static const String logoutFromAdmin = 'Apakah Anda yakin ingin keluar dari dashboard admin?';
 
   // Register Screen
   static const String registerTitle = 'Buat Akun';
@@ -352,8 +354,10 @@ class AppStrings {
   static const String reportDate = 'Tanggal Laporan';
 
   // ADMIN (additional localized helpers)
-  static const String reportReasonMinLength = 'Alasan laporan minimal 10 karakter';
-  static const String loginToSubmitReport = 'Silakan masuk untuk mengirim laporan';
+  static const String reportReasonMinLength =
+      'Alasan laporan minimal 10 karakter';
+  static const String loginToSubmitReport =
+      'Silakan masuk untuk mengirim laporan';
   static const String reportReviewNotice =
       'Laporan Anda akan ditinjau oleh tim administrator.';
   static const String selectReason = 'Pilih Alasan';
@@ -382,8 +386,6 @@ class AppStrings {
   static const String failedToUpdateReport = 'Gagal memperbarui laporan';
   static const String noPendingReports = 'Tidak ada laporan yang menunggu';
   static const String noReportsFound = 'Tidak ada laporan ditemukan';
-  static const String overview = 'Ikhtisar';
-  static const String locationViewTest = 'Tes Tampilan Lokasi';
 
   // ============================================================================
   // MENU & NAVIGATION
@@ -745,7 +747,6 @@ class AppStrings {
       'Pengguna berhasil dibuka blokirnya';
   static const String failedToUnbanUser = 'Gagal membuka blokir pengguna';
   static const String noUsersFound = 'Tidak ada pengguna ditemukan';
-  static const String phone = 'Telepon';
 
   // ============================================================================
   // VALIDATION & ERRORS

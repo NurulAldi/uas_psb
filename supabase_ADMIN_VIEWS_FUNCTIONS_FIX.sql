@@ -80,6 +80,49 @@ CREATE POLICY "Users can delete their own products"
     USING (owner_id = (current_setting('app.current_user_id', true)::UUID));
 
 -- =====================================================
+-- ADMIN: Update Report Status function
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION public.admin_update_report_status(
+  p_report_id UUID,
+  p_status TEXT,
+  p_admin_id UUID,
+  p_admin_notes TEXT DEFAULT NULL
+)
+RETURNS JSON AS $$
+DECLARE
+  updated_row reports%ROWTYPE;
+  result JSON;
+  is_admin BOOLEAN;
+BEGIN
+  -- Verify admin exists and has role 'admin'
+  SELECT EXISTS (SELECT 1 FROM users WHERE id = p_admin_id AND role = 'admin') INTO is_admin;
+  IF NOT is_admin THEN
+    result := json_build_object('success', false, 'error', 'Not an admin');
+    RETURN result;
+  END IF;
+
+  -- Perform update
+  UPDATE reports
+  SET status = p_status,
+      reviewed_by = p_admin_id,
+      reviewed_at = NOW(),
+      admin_notes = p_admin_notes,
+      updated_at = NOW()
+  WHERE id = p_report_id
+  RETURNING * INTO updated_row;
+
+  IF FOUND THEN
+    result := json_build_object('success', true, 'data', row_to_json(updated_row));
+  ELSE
+    result := json_build_object('success', false, 'error', 'No rows updated');
+  END IF;
+
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- =====================================================
 -- END RLS POLICIES FIX
 -- =====================================================
 

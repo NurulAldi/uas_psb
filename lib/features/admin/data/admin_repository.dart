@@ -321,43 +321,31 @@ class AdminRepository {
     String? adminNotes,
   }) async {
     try {
-      // Set user context so RLS policies that depend on app.current_user_id work
-      // This mirrors how other repositories use `set_user_context` before actions
+      // Use a DB function to update report status as a single operation
+      // This avoids relying on session variables across separate HTTP requests
+      print('📝 AdminRepository: Calling admin_update_report_status RPC...');
+
       try {
-        await _supabase.rpc('set_user_context', params: {'user_id': adminId});
-        print(
-            '🔧 AdminRepository: set_user_context called for admin: $adminId');
+        final rpcResponse =
+            await _supabase.rpc('admin_update_report_status', params: {
+          'p_report_id': reportId,
+          'p_status': status.value,
+          'p_admin_id': adminId,
+          'p_admin_notes': adminNotes,
+        });
+
+        print('📥 AdminRepository: RPC response: $rpcResponse');
+
+        if (rpcResponse is Map && rpcResponse['success'] == true) {
+          print(
+              '✅ AdminRepository: Report updated successfully (id: $reportId)');
+          return true;
+        } else {
+          print('⚠️ AdminRepository: RPC reported failure: ${rpcResponse}?');
+          return false;
+        }
       } catch (e) {
-        print('⚠️ AdminRepository: Failed to set user context: $e');
-        // Continue — the update may still fail due to RLS but we'll detect that below
-      }
-
-      print('📝 AdminRepository: Updating report status...');
-
-      // Capture update response and ensure at least one row was updated
-      final response = await _supabase
-          .from('reports')
-          .update({
-            'status': status.value,
-            'reviewed_by': adminId,
-            'reviewed_at': DateTime.now().toIso8601String(),
-            'admin_notes': adminNotes,
-          })
-          .eq('id', reportId)
-          .select();
-
-      // Postgrest returns a list of updated rows when .select() is used
-      if (response == null) {
-        print('❌ AdminRepository: Update returned null response');
-        return false;
-      }
-
-      if (response is List && response.isNotEmpty) {
-        print('✅ AdminRepository: Report updated successfully (id: $reportId)');
-        return true;
-      } else {
-        print(
-            '⚠️ AdminRepository: No rows were updated for report id: $reportId');
+        print('❌ AdminRepository: RPC call failed: $e');
         return false;
       }
     } catch (e) {
