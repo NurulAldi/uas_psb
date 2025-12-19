@@ -6,6 +6,7 @@ import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/features/products/providers/product_provider.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
+import 'package:rentlens/core/utils/navigation_helper.dart';
 
 class ProductListScreen extends ConsumerWidget {
   final String? category;
@@ -65,7 +66,8 @@ class ProductListScreen extends ConsumerWidget {
               final product = products[index];
               return _ProductCard(
                 product: product,
-                onTap: () => context.push('/products/${product.id}'),
+                onTap: () => NavigationHelper.openProductDetail(
+                    context, ref, product.id),
               );
             },
           );

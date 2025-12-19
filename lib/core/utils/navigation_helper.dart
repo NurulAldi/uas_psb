@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:rentlens/features/products/providers/product_provider.dart';
+import 'package:rentlens/core/constants/app_strings.dart';
 
 /// Context-Aware Navigation Helper
 ///
@@ -232,6 +235,63 @@ class NavigationHelper {
     } catch (e) {
       debugPrint('❌ Navigation error: $e');
       onError?.call(e);
+    }
+  }
+
+  /// Open the product detail page after verifying ownership with the backend.
+  /// Shows a modal loading indicator while the ownership check runs.
+  /// Returns the result of the pushed route (if any).
+  static Future<T?> openProductDetail<T>(
+    BuildContext context,
+    WidgetRef ref,
+    String productId,
+  ) async {
+    // Show blocking loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      // Trigger provider and wait for server-validated ownership check
+      // Use refresh to force recompute (avoid stale cached results across auth changes)
+      final isOwner =
+          await ref.refresh(isProductOwnerProvider(productId).future);
+
+      if (!context.mounted) return null;
+
+      // Close loading
+      Navigator.of(context).pop();
+
+      // Navigate to product detail - provider result will be cached so UI updates immediately
+      final result = await context.push<T>('/products/$productId');
+      return result;
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppStrings.error}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
     }
   }
 }

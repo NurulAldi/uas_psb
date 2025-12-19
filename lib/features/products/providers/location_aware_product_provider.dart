@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/core/services/location_service.dart';
 import 'package:rentlens/features/products/data/repositories/product_repository.dart';
+import 'package:rentlens/features/auth/providers/auth_provider.dart' as auth;
 import 'package:rentlens/features/products/domain/models/product.dart';
 import 'package:rentlens/features/products/domain/models/product_with_distance.dart';
 import 'package:rentlens/features/products/providers/product_provider.dart';
@@ -301,8 +302,11 @@ class LocationAwareProductController
 }
 
 /// Provider for location-aware products
-final locationAwareProductControllerProvider = StateNotifierProvider<
+final locationAwareProductControllerProvider = StateNotifierProvider.autoDispose<
     LocationAwareProductController, LocationAwareProductState>((ref) {
+  // Watch current user so controller re-initializes on auth change
+  ref.watch(auth.currentUserProvider);
+
   final productRepository = ref.watch(productRepositoryProvider);
   final locationService = ref.watch(locationServiceProvider);
 

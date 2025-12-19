@@ -3,8 +3,15 @@ import 'package:rentlens/features/products/data/repositories/product_repository.
 import 'package:rentlens/features/products/domain/models/product.dart';
 import 'package:rentlens/features/products/providers/product_provider.dart';
 
+import 'package:rentlens/features/auth/providers/auth_provider.dart' as auth;
+
 /// Provider for user's products (my listings)
-final myProductsProvider = FutureProvider<List<Product>>((ref) async {
+final myProductsProvider =
+    FutureProvider.autoDispose<List<Product>>((ref) async {
+  // Depend on current user so the provider invalidates on logout/login
+  final currentUser = ref.watch(auth.currentUserProvider);
+  if (currentUser == null) return [];
+
   final repository = ref.watch(productRepositoryProvider);
   return await repository.getMyProducts();
 });

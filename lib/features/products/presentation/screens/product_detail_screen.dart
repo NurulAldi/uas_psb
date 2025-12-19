@@ -158,31 +158,43 @@ class ProductDetailScreen extends ConsumerWidget {
             Consumer(
               builder: (context, ref, child) {
                 final authState = ref.watch(auth.authProvider);
-                final isOwner = authState.userProfile != null &&
-                    authState.userProfile!.id == product.ownerId;
 
-                // Only show report button if user is authenticated and not the owner
-                if (authState.isAuthenticated && !isOwner) {
-                  return IconButton(
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.shadow,
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
+                // Only proceed if authenticated and product has an owner
+                if (!authState.isAuthenticated || product.ownerId == null)
+                  return const SizedBox.shrink();
+
+                final ownerAsync =
+                    ref.watch(isProductOwnerProvider(product.id));
+
+                return ownerAsync.when(
+                  data: (isOwner) {
+                    if (!isOwner) {
+                      return IconButton(
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.shadow,
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: Icon(Icons.flag, size: 20, color: Colors.red[700]),
-                    ),
-                    onPressed: () => _showReportDialog(context, ref, product),
-                  );
-                }
-                return const SizedBox.shrink();
+                          child: Icon(Icons.flag,
+                              size: 20, color: Colors.red[700]),
+                        ),
+                        onPressed: () =>
+                            _showReportDialog(context, ref, product),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                );
               },
             ),
             const SizedBox(width: 8),
@@ -331,10 +343,16 @@ class ProductDetailScreen extends ConsumerWidget {
                         authState.userProfile!.id == product.ownerId;
 
                     // Only show owner section if user is authenticated and not the owner
-                    if (product.ownerId != null &&
-                        authState.isAuthenticated &&
-                        !isOwner) {
-                      return _OwnerInfoSection(ownerId: product.ownerId!);
+                    if (product.ownerId != null && authState.isAuthenticated) {
+                      final ownerAsync =
+                          ref.watch(isProductOwnerProvider(product.id));
+                      return ownerAsync.when(
+                        data: (isOwner) => !isOwner
+                            ? _OwnerInfoSection(ownerId: product.ownerId!)
+                            : const SizedBox.shrink(),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      );
                     }
                     return const SizedBox.shrink();
                   },
@@ -519,64 +537,150 @@ class _BottomActionBar extends ConsumerStatefulWidget {
 }
 
 class _BottomActionBarState extends ConsumerState<_BottomActionBar> {
-  /// Check if current user is the owner of this product
-  bool get _isOwner {
-    final authState = ref.watch(auth.authProvider);
-    return authState.isAuthenticated &&
-        authState.userProfile != null &&
-        authState.userProfile!.id == widget.product.ownerId;
-  }
-
   @override
   Widget build(BuildContext context) {
-    // If user is the owner, show different UI
-    if (_isOwner) {
-      return _buildOwnerActionBar(context);
-    }
+    // Compute ownership inside build so the widget reacts to auth changes
+    final ownerAsync = ref.watch(isProductOwnerProvider(widget.product.id));
 
-    // Otherwise show normal rental UI
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowMedium,
-            blurRadius: 8,
-            offset: const Offset(0, -2),
+    return ownerAsync.when(
+      data: (isOwner) {
+        if (isOwner) {
+          return _buildOwnerActionBar(context);
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.shadowMedium,
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Action Buttons
-            Row(
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed:
-                        widget.product.isAvailable ? _handleRentNow : null,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      disabledBackgroundColor: AppColors.textTertiary,
-                    ),
-                    child: Text(
-                      widget.product.isAvailable
-                          ? 'Sewa Sekarang'
-                          : 'Tidak Tersedia',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed:
+                            widget.product.isAvailable ? _handleRentNow : null,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          disabledBackgroundColor: AppColors.textTertiary,
+                        ),
+                        child: Text(
+                          widget.product.isAvailable
+                              ? 'Sewa Sekarang'
+                              : 'Tidak Tersedia',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
+          ),
+        );
+      },
+      loading: () => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadowMedium,
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
           ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Action Buttons (disabled while loading)
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: null,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        disabledBackgroundColor: AppColors.textTertiary,
+                      ),
+                      child: Text(
+                        widget.product.isAvailable
+                            ? 'Sewa Sekarang'
+                            : 'Tidak Tersedia',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      error: (_, __) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.shadowMedium,
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed:
+                          widget.product.isAvailable ? _handleRentNow : null,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        disabledBackgroundColor: AppColors.textTertiary,
+                      ),
+                      child: Text(
+                        widget.product.isAvailable
+                            ? 'Sewa Sekarang'
+                            : 'Tidak Tersedia',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -182,16 +182,29 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        // Make dialog responsive on small screens and avoid horizontal overflow
+        scrollable: true,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        title: Row(
           children: [
             Icon(Icons.help_outline, color: AppColors.primary),
-            SizedBox(width: 12),
-            Text(AppStrings.confirmBookingTitle),
+            const SizedBox(width: 12),
+            // Allow the title to wrap when space is constrained
+            Expanded(
+              child: Text(
+                AppStrings.confirmBookingTitle,
+                style: const TextStyle(fontSize: 18),
+                softWrap: true,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: const Text(
           AppStrings.confirmBookingMessage,
           style: TextStyle(fontSize: 16),
+          softWrap: true,
         ),
         actions: [
           TextButton(
@@ -547,26 +560,31 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
           final isSelected = _deliveryMethod == method;
           final isDelivery = method == DeliveryMethod.delivery;
 
+          // Get current user synchronously to make UI responsive
+          final authState = profileAsync.value;
+          final user = authState?.user;
+          final isDisabled = isDelivery && (user == null || !user.hasLocation);
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: InkWell(
               onTap: _isSubmitting
                   ? null
                   : () {
-                      profileAsync.whenData((profile) {
-                        if (isDelivery && !profile!.hasLocation) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'Please set your location in profile to use delivery',
-                              ),
-                              backgroundColor: Colors.orange,
+                      if (isDisabled) {
+                        // Inform user how to enable delivery
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Please set your location in profile to use delivery',
                             ),
-                          );
-                          return;
-                        }
-                        setState(() => _deliveryMethod = method);
-                      });
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                        return;
+                      }
+
+                      setState(() => _deliveryMethod = method);
                     },
               borderRadius: BorderRadius.circular(12),
               child: Container(
@@ -579,31 +597,18 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
                   borderRadius: BorderRadius.circular(12),
                   color: isSelected
                       ? AppColors.primary.withValues(alpha: 0.05)
-                      : Colors.white,
+                      : (isDisabled ? Colors.grey[50] : Colors.white),
                 ),
                 child: Row(
                   children: [
                     Radio<DeliveryMethod>(
                       value: method,
                       groupValue: _deliveryMethod,
-                      onChanged: _isSubmitting
+                      onChanged: _isSubmitting || isDisabled
                           ? null
                           : (value) {
                               if (value != null) {
-                                profileAsync.whenData((profile) {
-                                  if (isDelivery && !profile!.hasLocation) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Please set your location in profile',
-                                        ),
-                                        backgroundColor: Colors.orange,
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  setState(() => _deliveryMethod = value);
-                                });
+                                setState(() => _deliveryMethod = value);
                               }
                             },
                       activeColor: AppColors.primary,
@@ -620,7 +625,9 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
                               fontWeight: FontWeight.w600,
                               color: isSelected
                                   ? AppColors.primary
-                                  : Colors.black87,
+                                  : (isDisabled
+                                      ? Colors.grey[500]
+                                      : Colors.black87),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -628,7 +635,9 @@ class _BookingFormScreenState extends ConsumerState<BookingFormScreen> {
                             method.description,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey[600],
+                              color: isDisabled
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
                             ),
                           ),
                           if (isDelivery &&

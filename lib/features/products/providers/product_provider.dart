@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rentlens/features/products/data/repositories/product_repository.dart';
 import 'package:rentlens/features/products/domain/models/product.dart';
+import 'package:rentlens/features/auth/providers/auth_provider.dart' as auth;
 
 /// Product Repository Provider
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
@@ -9,21 +10,30 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 
 /// All Products Provider
 /// Fetches all products from Supabase
-final allProductsProvider = FutureProvider<List<Product>>((ref) async {
+final allProductsProvider =
+    FutureProvider.autoDispose<List<Product>>((ref) async {
+  // Depend on current user so results are refreshed on auth change
+  ref.watch(auth.currentUserProvider);
   final repository = ref.watch(productRepositoryProvider);
   return repository.getProducts();
 });
 
 /// Available Products Provider
 /// Fetches only available products
-final availableProductsProvider = FutureProvider<List<Product>>((ref) async {
+final availableProductsProvider =
+    FutureProvider.autoDispose<List<Product>>((ref) async {
+  // Depend on current user so results are refreshed on auth change
+  ref.watch(auth.currentUserProvider);
   final repository = ref.watch(productRepositoryProvider);
   return repository.getAvailableProducts();
 });
 
 /// Featured Products Provider
 /// Fetches featured products for the home page (limited to 6)
-final featuredProductsProvider = FutureProvider<List<Product>>((ref) async {
+final featuredProductsProvider =
+    FutureProvider.autoDispose<List<Product>>((ref) async {
+  // Depend on current user so results are refreshed on auth change
+  ref.watch(auth.currentUserProvider);
   final repository = ref.watch(productRepositoryProvider);
   return repository.getFeaturedProducts(limit: 6);
 });
@@ -31,7 +41,10 @@ final featuredProductsProvider = FutureProvider<List<Product>>((ref) async {
 /// Products by Category Provider
 /// Fetches products filtered by category
 final productsByCategoryProvider =
-    FutureProvider.family<List<Product>, String?>((ref, category) async {
+    FutureProvider.autoDispose.family<List<Product>, String?>((ref, category) async {
+  // Depend on current user so results refresh on auth changes
+  ref.watch(auth.currentUserProvider);
+
   final repository = ref.watch(productRepositoryProvider);
 
   if (category == null || category.isEmpty) {
@@ -44,7 +57,10 @@ final productsByCategoryProvider =
 /// Single Product Provider
 /// Fetches a single product by ID
 final productByIdProvider =
-    FutureProvider.family<Product?, String>((ref, productId) async {
+    FutureProvider.autoDispose.family<Product?, String>((ref, productId) async {
+  // Depend on current user so product details refresh on auth change (owner visibility)
+  ref.watch(auth.currentUserProvider);
+
   final repository = ref.watch(productRepositoryProvider);
   return repository.getProductById(productId);
 });
@@ -52,7 +68,10 @@ final productByIdProvider =
 /// Search Products Provider
 /// Searches products by query
 final searchProductsProvider =
-    FutureProvider.family<List<Product>, String>((ref, query) async {
+    FutureProvider.autoDispose.family<List<Product>, String>((ref, query) async {
+  // Depend on current user so search results refresh on auth changes
+  ref.watch(auth.currentUserProvider);
+
   final repository = ref.watch(productRepositoryProvider);
 
   if (query.isEmpty) {
@@ -60,6 +79,18 @@ final searchProductsProvider =
   }
 
   return repository.searchProducts(query);
+});
+
+// Check if current user is the owner of the product
+// This provider watches the auth state so it will recompute on logout/login
+final isProductOwnerProvider =
+    FutureProvider.autoDispose.family<bool, String>((ref, productId) async {
+  // Depend on current user provider to invalidate when auth changes
+  final currentUser = ref.watch(auth.currentUserProvider);
+  if (currentUser == null) return false;
+
+  final repository = ref.watch(productRepositoryProvider);
+  return repository.isUserOwner(productId);
 });
 
 /// Product Availability Provider

@@ -99,7 +99,9 @@ class BookingRepository {
     }
   }
 
-  /// Get booking by ID
+  /// Get booking by ID (only for the booking owner)
+  ///
+  /// NOTE: This method enforces `user_id == currentUser` for stricter security.
   Future<Booking?> getBookingById(String bookingId) async {
     try {
       print('📦 BOOKING REPOSITORY: Fetching booking with ID: $bookingId');
@@ -120,13 +122,85 @@ class BookingRepository {
           .eq('id', bookingId)
           .eq('user_id',
               userId) // 🔒 SECURITY: Only allow access to own bookings
-          .single();
+          .maybeSingle();
+
+      if (response == null) {
+        print('📦 BOOKING REPOSITORY: No booking found for current user');
+        return null;
+      }
 
       print('📦 BOOKING REPOSITORY: Booking found');
 
       return Booking.fromJson(response);
     } catch (e, stackTrace) {
       print('❌ BOOKING REPOSITORY: Error fetching booking by ID = $e');
+      print('Stack trace: $stackTrace');
+      return null;
+    }
+  }
+
+  /// Get booking by ID with access check for owner or booking owner
+  ///
+  /// This will return the booking only if the current user is either the
+  /// booking owner (renter) or the product owner (owner). It joins the
+  /// `products` table to verify `owner_id`.
+  Future<Booking?> getBookingByIdWithAccess(String bookingId) async {
+    try {
+      print(
+          '📦 BOOKING REPOSITORY: Fetching booking with access check. ID: $bookingId');
+
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId == null) {
+        print('❌ No user logged in');
+        return null;
+      }
+
+      // Set user context for RLS policies so DB can apply correct row level rules
+      await _supabase
+          .rpc('set_user_context', params: {'user_id': currentUserId});
+
+      // Select booking and include product.owner_id to verify ownership
+      final response = await _supabase
+          .from('bookings')
+          .select('*, product:products(owner_id)')
+          .eq('id', bookingId)
+          .maybeSingle();
+
+      if (response == null) {
+        print(
+            '📦 BOOKING REPOSITORY: No booking found (RLS may have denied access)');
+        return null;
+      }
+
+      final bookingOwnerId = response['user_id'] as String?;
+      final rawProduct = response['product'];
+      Map<String, dynamic>? productMap;
+      if (rawProduct is List && rawProduct.isNotEmpty) {
+        productMap = rawProduct.first as Map<String, dynamic>;
+      } else if (rawProduct is Map<String, dynamic>) {
+        productMap = rawProduct;
+      }
+
+      final productOwnerId =
+          productMap != null ? productMap['owner_id'] as String? : null;
+
+      // Allow access if current user is booking owner or product owner
+      if (bookingOwnerId != currentUserId && productOwnerId != currentUserId) {
+        print(
+            '❌ Access denied: user is neither booking owner nor product owner');
+        return null;
+      }
+
+      // Inject product owner id into response as top-level owner_id so Booking.fromJson can parse it
+      if (productOwnerId != null) {
+        response['owner_id'] = productOwnerId;
+      }
+
+      print('📦 BOOKING REPOSITORY: Access granted to booking');
+
+      return Booking.fromJson(response);
+    } catch (e, stackTrace) {
+      print('❌ BOOKING REPOSITORY: Error fetching booking with access = $e');
       print('Stack trace: $stackTrace');
       return null;
     }
@@ -151,11 +225,17 @@ class BookingRepository {
       await _supabase
           .rpc('set_user_context', params: {'user_id': currentUserId});
 
-      // ✨ NEW: If owner is trying to confirm, check payment first
+      // ✨ NEW: If owner is trying to confirm, check payment first and verify access
       if (status == BookingStatus.confirmed) {
-        final booking = await getBookingById(bookingId);
+        final booking = await getBookingByIdWithAccess(bookingId);
         if (booking == null) {
-          throw Exception('Booking not found');
+          throw Exception('Booking not found or access denied');
+        }
+
+        // Ensure current user is product owner (only owner can confirm)
+        if (currentUserId == null || booking.ownerId != currentUserId) {
+          throw Exception(
+              'Access denied: only product owner can confirm the booking');
         }
 
         // ✨ VALIDATION: Payment must be completed
@@ -169,12 +249,19 @@ class BookingRepository {
         print('✅ Payment verified: PAID');
       }
 
+      // RLS context already set earlier; proceed with update (use maybeSingle for safety)
+
       final response = await _supabase
           .from('bookings')
           .update({'status': status.value})
           .eq('id', bookingId)
           .select()
-          .single();
+          .maybeSingle();
+
+      if (response == null) {
+        throw Exception(
+            'Booking not found or permission denied for id: $bookingId');
+      }
 
       print('✅ BOOKING REPOSITORY: Booking status updated');
 

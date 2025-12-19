@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
@@ -312,12 +313,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onTap: isLoading
                         ? null
                         : () {
-                            // Navigate to register screen
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (context) => const RegisterScreen(),
-                              ),
-                            );
+                            // Navigate to register screen via GoRouter
+                            context.goNamed('register');
                           },
                     child: Text(
                       AppStrings.registerNow,

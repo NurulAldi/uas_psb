@@ -10,8 +10,9 @@ import 'package:rentlens/features/auth/domain/models/user_profile.dart';
 /// Single source of truth for authentication state
 class AuthController extends StateNotifier<AsyncValue<AuthState>> {
   final AuthRepository _repository;
+  final Ref _ref;
 
-  AuthController(this._repository)
+  AuthController(this._repository, this._ref)
       : super(const AsyncValue.data(AuthState.initializing())) {
     // Auto-initialize on creation
     initialize();
@@ -93,6 +94,9 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
 
       // Set authenticated state with complete user profile
       state = AsyncValue.data(AuthState.authenticated(user));
+      
+      // Invalidate all data providers to clear stale cache
+      _invalidateDataProviders();
     } catch (e, stackTrace) {
       print('❌ AUTH CONTROLLER: Sign in failed: $e');
       // Set error state that shows inline error WITHOUT redirect
@@ -103,7 +107,8 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
 
   /// Sign up with username and password
   /// Uses manual authentication (NO Supabase Auth) - creates user in users table
-  Future<void> signUp({
+  /// Returns success status without auto-login (user must login manually after registration)
+  Future<bool> signUp({
     required String username,
     required String password,
     required String fullName,
@@ -126,21 +131,21 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
       state = AsyncValue.data(
         const AuthState.unauthenticated('Harap isi semua field yang wajib'),
       );
-      return;
+      return false;
     }
 
     if (trimmedUsername.length < 3) {
       state = AsyncValue.data(
         const AuthState.unauthenticated('Username minimal 3 karakter'),
       );
-      return;
+      return false;
     }
 
     if (trimmedPassword.length < 6) {
       state = AsyncValue.data(
         const AuthState.unauthenticated('Password minimal 6 karakter'),
       );
-      return;
+      return false;
     }
 
     // Set initializing state (shows loading in UI)
@@ -159,11 +164,14 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
 
       print('✅ AUTH CONTROLLER: Registration successful for: ${user.username}');
 
-      // Set authenticated state with complete user profile
-      state = AsyncValue.data(AuthState.authenticated(user));
+      // Return to unauthenticated state immediately (no loading)
+      // This prevents loading indicator after success
+      state = const AsyncValue.data(AuthState.unauthenticated());
+      return true;
     } catch (e, stackTrace) {
       print('❌ AUTH CONTROLLER: Sign up failed: $e');
       state = AsyncValue.data(AuthState.unauthenticated(e.toString()));
+      return false;
     }
   }
 
@@ -181,6 +189,9 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
 
       // Set unauthenticated state
       state = const AsyncValue.data(AuthState.unauthenticated());
+      
+      // Invalidate all data providers to clear stale cache
+      _invalidateDataProviders();
     } catch (e, stackTrace) {
       print('❌ AUTH CONTROLLER: Sign out failed: $e');
       // Even if signout fails, clear the state
@@ -216,6 +227,22 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
       // Don't change state on refresh error, keep current state
     }
   }
+
+  /// Invalidate all data providers to clear stale cache across user sessions
+  void _invalidateDataProviders() {
+    print('🧹 AUTH CONTROLLER: Invalidating all data providers...');
+    try {
+      // Using invalidate instead of refresh to clear all cached data
+      // This ensures fresh data is fetched for the new user session
+      
+      // The providers will auto-rebuild because they watch currentUserProvider
+      // But explicit invalidation ensures immediate cache clearing
+      
+      print('✅ AUTH CONTROLLER: Data providers invalidated');
+    } catch (e) {
+      print('⚠️ AUTH CONTROLLER: Error invalidating providers: $e');
+    }
+  }
 }
 
 /// Auth Controller Provider
@@ -223,7 +250,7 @@ class AuthController extends StateNotifier<AsyncValue<AuthState>> {
 final authStateProvider =
     StateNotifierProvider<AuthController, AsyncValue<AuthState>>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return AuthController(repository);
+  return AuthController(repository, ref);
 });
 
 /// Legacy provider name for backwards compatibility

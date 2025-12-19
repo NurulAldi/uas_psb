@@ -14,6 +14,7 @@ import 'package:rentlens/features/products/presentation/widgets/location_permiss
 import 'package:rentlens/features/products/presentation/widgets/location_status_header.dart';
 import 'package:rentlens/features/products/presentation/widgets/no_nearby_products_widget.dart';
 import 'package:rentlens/features/products/presentation/widgets/product_distance_badge.dart';
+import 'package:rentlens/core/utils/navigation_helper.dart';
 
 /// Home Screen - Location-First Product Discovery
 /// Default view shows nearby products within configurable radius
@@ -500,7 +501,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               return _ProductCardWithDistance(
                 key: ValueKey(product.id),
                 product: product,
-                onTap: () => context.push('/products/${product.id}'),
+                onTap: () => NavigationHelper.openProductDetail(
+                    context, ref, product.id),
               );
             },
           ),

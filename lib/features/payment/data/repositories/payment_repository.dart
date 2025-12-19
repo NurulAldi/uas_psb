@@ -132,12 +132,24 @@ class PaymentRepository {
         'updated_at': DateTime.now().toIso8601String(),
       };
 
+      // Ensure RLS user context is set before attempting update
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId != null) {
+        await _supabase
+            .rpc('set_user_context', params: {'user_id': currentUserId});
+      }
+
       final response = await _supabase
           .from('payments')
           .update(updateData)
           .eq('id', paymentId)
           .select()
-          .single();
+          .maybeSingle();
+
+      if (response == null) {
+        throw Exception(
+            'Payment not found or permission denied for id: $paymentId');
+      }
 
       print('✅ PAYMENT REPOSITORY: Payment status updated');
 
@@ -194,12 +206,24 @@ class PaymentRepository {
       print('   Update Data: $updateData');
       print('   Executing UPDATE query...');
 
+      // Ensure RLS user context is set before attempting update
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId != null) {
+        await _supabase
+            .rpc('set_user_context', params: {'user_id': currentUserId});
+      }
+
       final response = await _supabase
           .from('payments')
           .update(updateData)
           .eq('order_id', orderId)
           .select()
-          .single();
+          .maybeSingle();
+
+      if (response == null) {
+        throw Exception(
+            'Payment with order_id=$orderId not found or permission denied');
+      }
 
       print('✅ Payment updated in database');
       print('   Response: $response');

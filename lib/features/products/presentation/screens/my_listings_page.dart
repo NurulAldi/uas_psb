@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/products/providers/my_products_provider.dart';
+import 'package:rentlens/core/utils/navigation_helper.dart';
 
 class MyListingsPage extends ConsumerWidget {
   const MyListingsPage({super.key});
@@ -157,10 +158,9 @@ class MyListingsPage extends ConsumerWidget {
                             },
                           ),
                           onTap: () async {
-                            final result =
-                                await context.push<Map<String, dynamic>>(
-                              '/products/${product.id}',
-                            );
+                            final result = await NavigationHelper
+                                .openProductDetail<Map<String, dynamic>>(
+                                    context, ref, product.id);
                             // Refresh list if product was deleted or updated
                             if (result?['deleted'] == true ||
                                 result?['updated'] == true) {

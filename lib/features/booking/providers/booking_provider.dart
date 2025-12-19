@@ -9,9 +9,15 @@ final bookingRepositoryProvider = Provider<BookingRepository>((ref) {
   return BookingRepository();
 });
 
+import 'package:rentlens/features/auth/providers/auth_provider.dart' as auth;
+
 /// User Bookings Provider
 /// Fetches all bookings for the current user
-final userBookingsProvider = FutureProvider<List<Booking>>((ref) async {
+final userBookingsProvider = FutureProvider.autoDispose<List<Booking>>((ref) async {
+  // Depend on current user so results refresh on auth change
+  final currentUser = ref.watch(auth.currentUserProvider);
+  if (currentUser == null) return [];
+
   final repository = ref.watch(bookingRepositoryProvider);
   return repository.getUserBookings();
 });
@@ -164,7 +170,11 @@ final bookingNotifierProvider =
 /// User Bookings With Products Provider
 /// Fetches all bookings for the current user with product details
 final userBookingsWithProductsProvider =
-    FutureProvider<List<BookingWithProduct>>((ref) async {
+    FutureProvider.autoDispose<List<BookingWithProduct>>((ref) async {
+  // Depend on current user so results refresh on auth change
+  final currentUser = ref.watch(auth.currentUserProvider);
+  if (currentUser == null) return [];
+
   final repository = ref.watch(bookingRepositoryProvider);
   return repository.getUserBookingsWithProducts();
 });

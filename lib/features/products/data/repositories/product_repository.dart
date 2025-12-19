@@ -105,6 +105,34 @@ class ProductRepository {
     }
   }
 
+  /// Check whether the currently authenticated user is the owner of the product
+  /// Returns false if there's no authenticated user or on error
+  Future<bool> isUserOwner(String productId) async {
+    try {
+      final currentUserId = await SupabaseConfig.currentUserId;
+      if (currentUserId == null) return false;
+
+      // Set user context for RLS (defensive)
+      await _supabase
+          .rpc('set_user_context', params: {'user_id': currentUserId});
+
+      final response = await _supabase
+          .from('products')
+          .select('owner_id')
+          .eq('id', productId)
+          .maybeSingle();
+
+      if (response == null) return false;
+
+      final ownerId = response['owner_id'] as String?;
+      return ownerId != null && ownerId == currentUserId;
+    } catch (e, stackTrace) {
+      print('❌ PRODUCT REPOSITORY: Error checking product ownership = $e');
+      print('Stack trace: $stackTrace');
+      return false;
+    }
+  }
+
   /// Search products by name
   Future<List<Product>> searchProducts(String query) async {
     try {

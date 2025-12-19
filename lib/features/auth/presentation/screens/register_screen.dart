@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:rentlens/core/theme/app_colors.dart';
 import 'package:rentlens/core/constants/app_strings.dart';
 import 'package:rentlens/features/auth/controllers/auth_controller.dart';
@@ -32,13 +33,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     // Manual registration (NO Supabase Auth - creates user in users table)
-    await ref.read(authStateProvider.notifier).signUp(
+    final success = await ref.read(authStateProvider.notifier).signUp(
           username: _usernameController.text,
           password: _passwordController.text,
           fullName: _usernameController.text, // Use username as default
           email:
               _emailController.text.isNotEmpty ? _emailController.text : null,
         );
+
+    if (success && mounted) {
+      // Redirect to login screen immediately
+      context.goNamed('login');
+      
+      // Show success message after navigation
+      // Use Future.delayed to ensure navigation completes first
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registrasi berhasil! Silakan login dengan akun Anda.'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -46,27 +66,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final authAsync = ref.watch(authStateProvider);
     final authState = authAsync.value;
 
-    // Listen to auth state changes for feedback
+    // Listen to auth state changes for error feedback only
     ref.listen<AsyncValue<AuthState>>(
       authStateProvider,
       (previous, next) {
-        final prevState = previous?.value;
         final nextState = next.value;
-
-        // Show success feedback when transitioning to authenticated
-        if (prevState?.status != nextState?.status) {
-          if (nextState?.isAuthenticated == true) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                    'Registrasi berhasil! Selamat datang, ${nextState?.user?.fullName ?? nextState?.user?.username}!'),
-                backgroundColor: AppColors.success,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-            // Router will automatically handle navigation
-          }
-        }
 
         // Show error feedback
         if (nextState?.hasError == true) {
@@ -93,12 +97,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           onPressed: isLoading
               ? null
               : () {
-                  // Navigate back to login screen
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
-                  );
+                  // Navigate back to login screen via GoRouter
+                  context.goNamed('login');
                 },
         ),
       ),
@@ -273,12 +273,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     onTap: isLoading
                         ? null
                         : () {
-                            // Navigate to login screen
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(
-                                builder: (context) => const LoginScreen(),
-                              ),
-                            );
+                            // Navigate to login screen via GoRouter
+                            context.goNamed('login');
                           },
                     child: Text(
                       AppStrings.loginNow,

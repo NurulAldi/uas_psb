@@ -127,6 +127,9 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
         : _productReportReasons;
 
     return AlertDialog(
+      // Make the dialog scrollable and constrain height to avoid overflow
+      scrollable: true,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       title: Row(
         children: [
           Icon(
@@ -142,126 +145,132 @@ class _ReportDialogState extends ConsumerState<ReportDialog> {
           ),
         ],
       ),
-      content: Form(
-        key: _formKey,
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.65,
+        ),
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.targetName != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        widget.reportType == ReportType.user
-                            ? Icons.person
-                            : Icons.camera_alt,
-                        size: 20,
-                        color: Colors.grey[600],
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          widget.targetName!,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.targetName != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          widget.reportType == ReportType.user
+                              ? Icons.person
+                              : Icons.camera_alt,
+                          size: 20,
+                          color: Colors.grey[600],
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.targetName!,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 16),
+                ],
 
-              // Reason dropdown
-              DropdownButtonFormField<String>(
-                value: _selectedReason,
-                decoration: const InputDecoration(
-                  labelText: AppStrings.selectReason,
-                  border: OutlineInputBorder(),
-                ),
-                items: reasons.map((reason) {
-                  return DropdownMenuItem(
-                    value: reason,
-                    child: Text(reason),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedReason = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return AppStrings.reportReasonRequired;
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 16),
-
-              // Custom reason if "Other" selected
-              if (_selectedReason == 'Other') ...[
-                TextFormField(
-                  controller: _reasonController,
+                // Reason dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedReason,
                   decoration: const InputDecoration(
-                    labelText: AppStrings.specifyReason,
-                    hintText: AppStrings.reportReasonHint,
+                    labelText: AppStrings.selectReason,
                     border: OutlineInputBorder(),
                   ),
+                  items: reasons.map((reason) {
+                    return DropdownMenuItem(
+                      value: reason,
+                      child: Text(reason),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedReason = value;
+                    });
+                  },
                   validator: (value) {
-                    if (_selectedReason == 'Lainnya' &&
-                        (value == null || value.trim().isEmpty)) {
+                    if (value == null || value.isEmpty) {
                       return AppStrings.reportReasonRequired;
                     }
                     return null;
                   },
                 ),
+
                 const SizedBox(height: 16),
-              ],
 
-              // Description
-              TextFormField(
-                controller: _descriptionController,
-                decoration: const InputDecoration(
-                  labelText: AppStrings.descriptionOptional,
-                  hintText: 'Tambahkan informasi tambahan...',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 4,
-                maxLength: 500,
-              ),
-
-              const SizedBox(height: 8),
-
-              // Info text
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 20, color: Colors.blue[700]),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        AppStrings.reportReviewNotice,
-                        style: TextStyle(fontSize: 12),
-                      ),
+                // Custom reason if "Lainnya" selected
+                if (_selectedReason == 'Lainnya') ...[
+                  TextFormField(
+                    controller: _reasonController,
+                    decoration: const InputDecoration(
+                      labelText: AppStrings.specifyReason,
+                      hintText: AppStrings.reportReasonHint,
+                      border: OutlineInputBorder(),
                     ),
-                  ],
+                    validator: (value) {
+                      if (_selectedReason == 'Lainnya' &&
+                          (value == null || value.trim().isEmpty)) {
+                        return AppStrings.reportReasonRequired;
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Description
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: AppStrings.descriptionOptional,
+                    hintText: 'Tambahkan informasi tambahan...',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 4,
+                  maxLength: 500,
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 8),
+
+                // Info text
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 20, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          AppStrings.reportReviewNotice,
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
